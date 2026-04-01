@@ -22,9 +22,14 @@ public class ContactPanel extends JPanel {
     private JTextField searchField;
     private JComboBox<String> groupFilter;
     private JLabel statusLabel;
+    private JLabel titleLabel;
+    private JButton addBtn;
+    private JButton editBtn;
+    private JButton deleteBtn;
     private List<Contact> currentContacts = new ArrayList<>();
     private List<GroupInfo> allGroups = new ArrayList<>();
     private Runnable onRefresh;
+    private boolean isTrashMode = false;
 
     public ContactPanel() {
         this.contactService = ContactService.getInstance();
@@ -45,7 +50,7 @@ public class ContactPanel extends JPanel {
         topBar.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
 
         // Title
-        JLabel titleLabel = new JLabel("📒 Danh bạ");
+        titleLabel = new JLabel("📒 Danh bạ");
         titleLabel.setFont(UIConstants.FONT_TITLE);
         titleLabel.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -62,7 +67,7 @@ public class ContactPanel extends JPanel {
         groupFilter.addActionListener(e -> filterByGroup());
         loadGroupFilter();
 
-        JButton addBtn = createStyledButton("+ Thêm liên hệ", UIConstants.ACCENT);
+        addBtn = createStyledButton("+ Thêm liên hệ", UIConstants.ACCENT);
         addBtn.addActionListener(e -> showAddDialog());
 
         actionsPanel.add(groupFilter);
@@ -79,7 +84,7 @@ public class ContactPanel extends JPanel {
         add(topBar, BorderLayout.NORTH);
 
         // === TABLE ===
-        String[] columns = {"", "Tên", "SĐT", "Email", "Công ty", "Nhóm", "Hoàn thiện"};
+        String[] columns = {"", "Ảnh", "Tên", "SĐT", "Email", "Công ty", "Nhóm", "Hoàn thiện"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
@@ -87,7 +92,7 @@ public class ContactPanel extends JPanel {
 
         contactTable = new JTable(tableModel);
         contactTable.setFont(UIConstants.FONT_TABLE);
-        contactTable.setRowHeight(44);
+        contactTable.setRowHeight(54);
         contactTable.setBackground(UIConstants.BG_SECONDARY);
         contactTable.setForeground(UIConstants.TEXT_PRIMARY);
         contactTable.setSelectionBackground(UIConstants.BG_SELECTED);
@@ -100,12 +105,13 @@ public class ContactPanel extends JPanel {
 
         // Column widths
         contactTable.getColumnModel().getColumn(0).setMaxWidth(40);   // index
-        contactTable.getColumnModel().getColumn(1).setPreferredWidth(160); // name
-        contactTable.getColumnModel().getColumn(2).setPreferredWidth(120); // phone
-        contactTable.getColumnModel().getColumn(3).setPreferredWidth(160); // email
-        contactTable.getColumnModel().getColumn(4).setPreferredWidth(120); // company
-        contactTable.getColumnModel().getColumn(5).setPreferredWidth(100); // group
-        contactTable.getColumnModel().getColumn(6).setPreferredWidth(90);  // completion
+        contactTable.getColumnModel().getColumn(1).setMaxWidth(50);   // avatar
+        contactTable.getColumnModel().getColumn(2).setPreferredWidth(140); // name
+        contactTable.getColumnModel().getColumn(3).setPreferredWidth(110); // phone
+        contactTable.getColumnModel().getColumn(4).setPreferredWidth(150); // email
+        contactTable.getColumnModel().getColumn(5).setPreferredWidth(110); // company
+        contactTable.getColumnModel().getColumn(6).setPreferredWidth(100); // group
+        contactTable.getColumnModel().getColumn(7).setPreferredWidth(90);  // completion
 
         // Header styling
         JTableHeader header = contactTable.getTableHeader();
@@ -116,8 +122,9 @@ public class ContactPanel extends JPanel {
         header.setPreferredSize(new Dimension(header.getPreferredSize().width, 40));
 
         // Custom renderer for group column
-        contactTable.getColumnModel().getColumn(5).setCellRenderer(new GroupCellRenderer());
-        contactTable.getColumnModel().getColumn(6).setCellRenderer(new CompletionCellRenderer());
+        contactTable.getColumnModel().getColumn(1).setCellRenderer(new AvatarCellRenderer());
+        contactTable.getColumnModel().getColumn(6).setCellRenderer(new GroupCellRenderer());
+        contactTable.getColumnModel().getColumn(7).setCellRenderer(new CompletionCellRenderer());
         contactTable.getColumnModel().getColumn(0).setCellRenderer(new IndexCellRenderer());
 
         // Alternating row colors
@@ -140,7 +147,8 @@ public class ContactPanel extends JPanel {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    editSelectedContact();
+                    if (isTrashMode) restoreSelectedContact();
+                    else editSelectedContact();
                 }
             }
         });
@@ -179,11 +187,17 @@ public class ContactPanel extends JPanel {
         JPanel bottomActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         bottomActions.setOpaque(false);
 
-        JButton editBtn = createStyledButton("✏ Sửa", UIConstants.BG_CARD);
-        editBtn.addActionListener(e -> editSelectedContact());
+        editBtn = createStyledButton("✏ Sửa", UIConstants.BG_CARD);
+        editBtn.addActionListener(e -> {
+            if (isTrashMode) restoreSelectedContact();
+            else editSelectedContact();
+        });
 
-        JButton deleteBtn = createStyledButton("🗑 Xóa", UIConstants.DANGER);
-        deleteBtn.addActionListener(e -> deleteSelectedContact());
+        deleteBtn = createStyledButton("🗑 Xóa", UIConstants.DANGER);
+        deleteBtn.addActionListener(e -> {
+            if (isTrashMode) permanentlyDeleteSelectedContact();
+            else deleteSelectedContact();
+        });
 
         bottomActions.add(editBtn);
         bottomActions.add(deleteBtn);
@@ -243,20 +257,30 @@ public class ContactPanel extends JPanel {
 
     private JPopupMenu createContextMenu() {
         JPopupMenu menu = new JPopupMenu();
-        JMenuItem editItem = new JMenuItem("✏ Sửa liên hệ");
-        editItem.addActionListener(e -> editSelectedContact());
-        JMenuItem deleteItem = new JMenuItem("🗑 Xóa liên hệ");
-        deleteItem.addActionListener(e -> deleteSelectedContact());
-        JMenu groupMenu = new JMenu("📂 Chuyển nhóm");
-        for (GroupInfo g : allGroups) {
-            JMenuItem gi = new JMenuItem(g.toString());
-            gi.addActionListener(e -> changeSelectedGroupById(g.getId()));
-            groupMenu.add(gi);
+        if (isTrashMode) {
+            JMenuItem restoreItem = new JMenuItem("♻ Khôi phục");
+            restoreItem.addActionListener(e -> restoreSelectedContact());
+            JMenuItem deleteItem = new JMenuItem("🗑 Xóa vĩnh viễn");
+            deleteItem.addActionListener(e -> permanentlyDeleteSelectedContact());
+            menu.add(restoreItem);
+            menu.addSeparator();
+            menu.add(deleteItem);
+        } else {
+            JMenuItem editItem = new JMenuItem("✏ Sửa liên hệ");
+            editItem.addActionListener(e -> editSelectedContact());
+            JMenuItem deleteItem = new JMenuItem("🗑 Xóa liên hệ");
+            deleteItem.addActionListener(e -> deleteSelectedContact());
+            JMenu groupMenu = new JMenu("📂 Chuyển nhóm");
+            for (GroupInfo g : allGroups) {
+                JMenuItem gi = new JMenuItem(g.toString());
+                gi.addActionListener(e -> changeSelectedGroupById(g.getId()));
+                groupMenu.add(gi);
+            }
+            menu.add(editItem);
+            menu.add(groupMenu);
+            menu.addSeparator();
+            menu.add(deleteItem);
         }
-        menu.add(editItem);
-        menu.add(groupMenu);
-        menu.addSeparator();
-        menu.add(deleteItem);
         return menu;
     }
 
@@ -266,7 +290,11 @@ public class ContactPanel extends JPanel {
         SwingWorker<List<Contact>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Contact> doInBackground() throws Exception {
-                return contactService.getAllContacts();
+                if (isTrashMode) {
+                    return contactService.getDeletedContacts();
+                } else {
+                    return contactService.getAllContacts();
+                }
             }
             @Override
             protected void done() {
@@ -482,12 +510,87 @@ public class ContactPanel extends JPanel {
         worker.execute();
     }
 
+    public void setTrashMode(boolean trashMode) {
+        this.isTrashMode = trashMode;
+        if (trashMode) {
+            titleLabel.setText("🗑 Thùng rác");
+            addBtn.setVisible(false);
+            groupFilter.setVisible(false);
+            editBtn.setText("♻ Khôi phục");
+            deleteBtn.setText("🗑 Xóa vĩnh viễn");
+        } else {
+            titleLabel.setText("📒 Danh bạ");
+            addBtn.setVisible(true);
+            groupFilter.setVisible(true);
+            editBtn.setText("✏ Sửa");
+            deleteBtn.setText("🗑 Xóa");
+        }
+        loadContacts();
+    }
+
+    private void restoreSelectedContact() {
+        int row = contactTable.getSelectedRow();
+        if (row < 0) return;
+        Contact contact = currentContacts.get(row);
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                contactService.restoreContact(contact.getId());
+                return null;
+            }
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    loadContacts();
+                    if (onRefresh != null) onRefresh.run();
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(ContactPanel.this,
+                            "Lỗi khôi phục: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void permanentlyDeleteSelectedContact() {
+        int row = contactTable.getSelectedRow();
+        if (row < 0) return;
+        Contact contact = currentContacts.get(row);
+        int ok = JOptionPane.showConfirmDialog(this,
+                "Xóa VĨNH VIỄN liên hệ \"" + contact.getName() + "\"?\nHành động này không thể hoàn tác.",
+                "Cảnh báo",
+                JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            SwingWorker<Void, Void> worker = new SwingWorker<>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    contactService.permanentlyDeleteContact(contact.getId());
+                    return null;
+                }
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        loadContacts();
+                        if (onRefresh != null) onRefresh.run();
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ContactPanel.this,
+                                "Lỗi xóa vĩnh viễn: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            worker.execute();
+        }
+    }
+
     private void refreshTable() {
         tableModel.setRowCount(0);
         for (int i = 0; i < currentContacts.size(); i++) {
             Contact c = currentContacts.get(i);
             tableModel.addRow(new Object[]{
                     i + 1,
+                    c, // Avatar cell gets the Contact object
                     c.getName(),
                     c.getPhone() != null ? c.getPhone() : "",
                     c.getEmail() != null ? c.getEmail() : "",
@@ -637,6 +740,72 @@ public class ContactPanel extends JPanel {
             g2.drawString(text, x + w + 2 - fm.stringWidth(text) - 2, y + h + fm.getAscent() - 2);
 
             g2.dispose();
+        }
+    }
+
+    private static class AvatarCellRenderer extends DefaultTableCellRenderer {
+        private final java.util.Map<String, ImageIcon> cache = new java.util.HashMap<>();
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            setText("");
+            setIcon(null);
+            setHorizontalAlignment(CENTER);
+
+            if (value instanceof Contact) {
+                Contact c = (Contact) value;
+                String base64 = c.getAvatar();
+                if (base64 != null && !base64.isBlank()) {
+                    if (cache.containsKey(c.getId())) {
+                        setIcon(cache.get(c.getId()));
+                    } else {
+                        try {
+                            byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64);
+                            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(decodedBytes));
+                            if (img != null) {
+                                java.awt.image.BufferedImage circleImg = makeRoundedImage(img, 32);
+                                ImageIcon icon = new ImageIcon(circleImg);
+                                cache.put(c.getId(), icon);
+                                setIcon(icon);
+                            }
+                        } catch (Exception e) {
+                            setText("👤");
+                        }
+                    }
+                } else {
+                    // Display initials
+                    String initial = "?";
+                    if (c.getName() != null && !c.getName().isBlank()) {
+                        initial = String.valueOf(c.getName().trim().charAt(0)).toUpperCase();
+                    }
+                    setText(initial);
+                    setFont(UIConstants.FONT_SMALL_BOLD);
+                    setForeground(UIConstants.TEXT_MUTED);
+                }
+            }
+
+            if (!isSelected) {
+                setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
+            } else {
+                setBackground(UIConstants.BG_SELECTED);
+            }
+            setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+            return this;
+        }
+
+        private java.awt.image.BufferedImage makeRoundedImage(java.awt.image.BufferedImage img, int size) {
+            java.awt.image.BufferedImage rounded = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = rounded.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.fill(new java.awt.geom.Ellipse2D.Float(0, 0, size, size));
+            g2.setComposite(AlphaComposite.SrcAtop);
+            g2.drawImage(img, 0, 0, size, size, null);
+            g2.dispose();
+            return rounded;
         }
     }
 }

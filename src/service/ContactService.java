@@ -73,6 +73,18 @@ public class ContactService {
         supabase.deleteContact(id);
     }
 
+    public List<Contact> getDeletedContacts() throws Exception {
+        return supabase.getDeletedContacts();
+    }
+
+    public void restoreContact(String id) throws Exception {
+        supabase.restoreContact(id);
+    }
+
+    public void permanentlyDeleteContact(String id) throws Exception {
+        supabase.permanentlyDeleteContact(id);
+    }
+
     // ==================== COMPANIES ====================
 
     public List<Company> getAllCompanies() throws Exception {
@@ -247,6 +259,12 @@ public class ContactService {
         supabase.deleteContacts(ids);
     }
 
+    public void permanentlyDeleteMultiple(List<Contact> contacts) throws Exception {
+        for (Contact c : contacts) {
+            supabase.permanentlyDeleteContact(c.getId());
+        }
+    }
+
     public Map<String, Object> getStatistics() throws Exception {
         List<Contact> all = getAllContacts();
         Map<String, Object> stats = new LinkedHashMap<>();
@@ -256,6 +274,47 @@ public class ContactService {
         double avgCompletion = all.stream().mapToInt(Contact::getCompletionPercent).average().orElse(0);
         stats.put("avgCompletion", (int) avgCompletion);
         return stats;
+    }
+
+    // ==================== BIRTHDAYS ====================
+
+    /**
+     * Lấy danh sách những người có sinh nhật trong vòng 'days' ngày tới.
+     */
+    public List<Contact> getUpcomingBirthdays(int days) throws Exception {
+        List<Contact> all = getAllContacts();
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        return all.stream()
+                .filter(c -> c.getBirthday() != null && !c.getBirthday().isBlank())
+                .filter(c -> {
+                    try {
+                        java.time.LocalDate bday = java.time.LocalDate.parse(c.getBirthday());
+                        java.time.LocalDate nextBday = bday.withYear(today.getYear());
+                        
+                        // Nếu sinh nhật năm nay đã qua, xét sinh nhật năm sau
+                        if (nextBday.isBefore(today)) {
+                            nextBday = nextBday.plusYears(1);
+                        }
+                        
+                        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(today, nextBday);
+                        return daysBetween >= 0 && daysBetween <= days;
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .sorted((c1, c2) -> {
+                    try {
+                        java.time.LocalDate bd1 = java.time.LocalDate.parse(c1.getBirthday()).withYear(today.getYear());
+                        if (bd1.isBefore(today)) bd1 = bd1.plusYears(1);
+                        java.time.LocalDate bd2 = java.time.LocalDate.parse(c2.getBirthday()).withYear(today.getYear());
+                        if (bd2.isBefore(today)) bd2 = bd2.plusYears(1);
+                        return bd1.compareTo(bd2);
+                    } catch (Exception e) {
+                        return 0;
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     // ==================== HELPERS ====================

@@ -44,7 +44,7 @@ public class SupabaseService {
     public List<Contact> getAllContacts() throws Exception {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
-                + "&order=name.asc";
+                + "&is_deleted=eq.false&order=name.asc";
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
@@ -57,7 +57,7 @@ public class SupabaseService {
     public List<Contact> getContactsByGroup(int groupId) throws Exception {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
-                + "&group_id=eq." + groupId + "&order=name.asc";
+                + "&group_id=eq." + groupId + "&is_deleted=eq.false&order=name.asc";
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
@@ -72,7 +72,7 @@ public class SupabaseService {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
                 + "&or=(name.ilike." + encoded + ",phone.ilike." + encoded + ",email.ilike." + encoded + ")"
-                + "&order=name.asc";
+                + "&is_deleted=eq.false&order=name.asc";
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
@@ -124,9 +124,49 @@ public class SupabaseService {
     }
 
     /**
-     * Xóa liên hệ theo ID.
+     * Soft delete: Chuyển vào Thùng rác.
      */
     public void deleteContact(String id) throws Exception {
+        String url = config.getRestUrl() + "contacts?id=eq." + id;
+        String json = "{\"is_deleted\": true}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=representation")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        checkResponse(response);
+    }
+
+    /**
+     * Khôi phục liên hệ từ Thùng rác.
+     */
+    public void restoreContact(String id) throws Exception {
+        String url = config.getRestUrl() + "contacts?id=eq." + id;
+        String json = "{\"is_deleted\": false}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=representation")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        checkResponse(response);
+    }
+
+    /**
+     * Xóa vĩnh viễn liên hệ theo ID.
+     */
+    public void permanentlyDeleteContact(String id) throws Exception {
         String url = config.getRestUrl() + "contacts?id=eq." + id;
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -139,7 +179,20 @@ public class SupabaseService {
     }
 
     /**
-     * Xóa nhiều liên hệ theo danh sách ID.
+     * Lấy các liên hệ trong Thùng rác.
+     */
+    public List<Contact> getDeletedContacts() throws Exception {
+        String url = config.getRestUrl()
+                + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
+                + "&is_deleted=eq.true&order=name.asc";
+        HttpRequest request = buildGetRequest(url);
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        checkResponse(response);
+        return parseContactList(response.body());
+    }
+
+    /**
+     * Xóa nhiều liên hệ theo danh sách ID (soft delete).
      */
     public void deleteContacts(List<String> ids) throws Exception {
         for (String id : ids) {
@@ -300,6 +353,8 @@ public class SupabaseService {
         if (c.getAddress() != null) json.addProperty("address", c.getAddress());
         if (c.getBirthday() != null && !c.getBirthday().isBlank())
             json.addProperty("birthday", c.getBirthday());
+        if (c.getAvatar() != null && !c.getAvatar().isBlank())
+            json.addProperty("avatar", c.getAvatar());
         if (c.getNotes() != null) json.addProperty("notes", c.getNotes());
         json.addProperty("group_id", c.getGroupId());
         if (c.getCompanyId() != null && !c.getCompanyId().isBlank())
@@ -317,6 +372,11 @@ public class SupabaseService {
             json.addProperty("birthday", c.getBirthday());
         } else {
             json.add("birthday", JsonNull.INSTANCE);
+        }
+        if (c.getAvatar() != null && !c.getAvatar().isBlank()) {
+            json.addProperty("avatar", c.getAvatar());
+        } else {
+            json.add("avatar", JsonNull.INSTANCE);
         }
         json.addProperty("notes", c.getNotes());
         json.addProperty("group_id", c.getGroupId());
@@ -375,11 +435,15 @@ public class SupabaseService {
         c.setEmail(getStr(obj, "email"));
         c.setAddress(getStr(obj, "address"));
         c.setBirthday(getStr(obj, "birthday"));
+        c.setAvatar(getStr(obj, "avatar"));
         c.setNotes(getStr(obj, "notes"));
         c.setGroupId(getInt(obj, "group_id", 5));
         c.setCompanyId(getStr(obj, "company_id"));
         c.setCreatedAt(getStr(obj, "created_at"));
         c.setLastModified(getStr(obj, "last_modified"));
+        if (obj.has("is_deleted") && !obj.get("is_deleted").isJsonNull()) {
+            c.setDeleted(obj.get("is_deleted").getAsBoolean());
+        }
         return c;
     }
 

@@ -14,11 +14,13 @@ public class Contact {
     private String email;
     private String address;
     private String birthday;       // yyyy-MM-dd
+    private String avatar;         // Base64 image string
     private String notes;
     private int groupId;           // FK → contact_groups.id
     private String companyId;      // FK → companies.id (UUID)
     private String createdAt;
     private String lastModified;
+    private boolean isDeleted;
 
     // Transient fields (không lưu DB, chỉ dùng hiển thị)
     private String contactGroupName;   // Tên nhóm: FAVORITES, FAMILY, ...
@@ -55,6 +57,9 @@ public class Contact {
     public String getBirthday() { return birthday; }
     public void setBirthday(String birthday) { this.birthday = birthday; }
 
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
+
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
@@ -69,6 +74,9 @@ public class Contact {
 
     public String getLastModified() { return lastModified; }
     public void setLastModified(String lastModified) { this.lastModified = lastModified; }
+
+    public boolean isDeleted() { return isDeleted; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
 
     // Transient
     public String getContactGroupName() { return contactGroupName; }
@@ -116,6 +124,7 @@ public class Contact {
         if (email != null && !email.isBlank()) count++;
         if (address != null && !address.isBlank()) count++;
         if (birthday != null && !birthday.isBlank()) count++;
+        if (avatar != null && !avatar.isBlank()) count++;
         if (companyId != null && !companyId.isBlank()) count++;
         if (notes != null && !notes.isBlank()) count++;
         return count;
@@ -125,7 +134,7 @@ public class Contact {
      * Tổng số trường có thể điền (không tính id, timestamps, group).
      */
     public int getTotalFields() {
-        return 7; // name, phone, email, address, birthday, company, notes
+        return 8; // name, phone, email, address, birthday, avatar, company, notes
     }
 
     /**

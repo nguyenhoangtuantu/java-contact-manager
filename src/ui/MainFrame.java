@@ -40,6 +40,7 @@ public class MainFrame extends JFrame {
         initComponents();
         contactPanel.loadContacts();
         refreshGroupList();
+        checkUpcomingBirthdays();
     }
 
     private boolean checkSupabaseConfig() {
@@ -152,7 +153,7 @@ public class MainFrame extends JFrame {
         JButton contactsBtn = createSidebarButton("📒", "Danh bạ");
         contactsBtn.addActionListener(e -> {
             setActiveButton(contactsBtn);
-            contactPanel.loadContacts();
+            contactPanel.setTrashMode(false);
         });
         sidebar.add(contactsBtn);
         activeButton = contactsBtn;
@@ -179,6 +180,13 @@ public class MainFrame extends JFrame {
             }
         });
         sidebar.add(cleanupBtn);
+
+        JButton trashBtn = createSidebarButton("🗑", "Thùng rác");
+        trashBtn.addActionListener(e -> {
+            setActiveButton(trashBtn);
+            contactPanel.setTrashMode(true);
+        });
+        sidebar.add(trashBtn);
 
         sidebar.add(Box.createVerticalStrut(12));
         sidebar.add(createSeparator());
@@ -223,11 +231,6 @@ public class MainFrame extends JFrame {
 
         sidebar.add(Box.createVerticalGlue());
 
-        // Bottom: settings
-        sidebar.add(createSeparator());
-        JButton settingsBtn = createSidebarButton("⚙️", "Cài đặt Supabase");
-        settingsBtn.addActionListener(e -> showConfigDialog(SupabaseConfig.getInstance()));
-        sidebar.add(settingsBtn);
         sidebar.add(Box.createVerticalStrut(12));
 
         return sidebar;
@@ -302,6 +305,7 @@ public class MainFrame extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 // Filter contacts by this group
+                contactPanel.setTrashMode(false);
                 contactPanel.filterByGroupId(group.getId(), group.getDisplayName());
             }
             @Override
@@ -446,5 +450,48 @@ public class MainFrame extends JFrame {
         sep.setBackground(UIConstants.BORDER);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         return sep;
+    }
+
+    private void checkUpcomingBirthdays() {
+        SwingWorker<List<model.Contact>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<model.Contact> doInBackground() throws Exception {
+                return ContactService.getInstance().getUpcomingBirthdays(7);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<model.Contact> birthdays = get();
+                    if (birthdays != null && !birthdays.isEmpty()) {
+                        StringBuilder sb = new StringBuilder("Sắp tới sinh nhật của các liên hệ sau:\n\n");
+                        for (model.Contact c : birthdays) {
+                            String date = c.getBirthday();
+                            if (date != null && date.length() >= 10) {
+                                // yyyy-MM-dd -> dd/MM
+                                date = date.substring(8, 10) + "/" + date.substring(5, 7);
+                            }
+                            sb.append("🎂 ").append(c.getName()).append(" (Ngày ").append(date).append(")\n");
+                        }
+
+                        JTextArea ta = new JTextArea(sb.toString());
+                        ta.setEditable(false);
+                        ta.setBackground(new Color(0, 0, 0, 0));
+                        ta.setOpaque(false);
+                        ta.setFont(UIConstants.FONT_BODY);
+
+                        JPanel panel = new JPanel(new BorderLayout());
+                        panel.setOpaque(false);
+                        panel.add(ta, BorderLayout.CENTER);
+
+                        JOptionPane.showMessageDialog(MainFrame.this, panel,
+                                "🎉 Nhắc nhở Sinh nhật", JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } catch (Exception e) {
+                    // Ignore silently
+                }
+            }
+        };
+        worker.execute();
     }
 }

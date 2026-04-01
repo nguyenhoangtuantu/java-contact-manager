@@ -42,21 +42,21 @@ public class UIConstants {
     public static final Color GROUP_OTHER = new Color(150, 150, 160);
 
     // === FONTS ===
-    public static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 22);
-    public static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.BOLD, 16);
-    public static final Font FONT_BODY = new Font("Segoe UI", Font.PLAIN, 14);
-    public static final Font FONT_BODY_BOLD = new Font("Segoe UI", Font.BOLD, 14);
-    public static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
-    public static final Font FONT_SMALL_BOLD = new Font("Segoe UI", Font.BOLD, 12);
-    public static final Font FONT_ICON = new Font("Segoe UI Emoji", Font.PLAIN, 18);
-    public static final Font FONT_SIDEBAR = new Font("Segoe UI", Font.PLAIN, 14);
-    public static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 13);
-    public static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 13);
+    public static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 28);
+    public static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.BOLD, 20);
+    public static final Font FONT_BODY = new Font("Segoe UI", Font.PLAIN, 16);
+    public static final Font FONT_BODY_BOLD = new Font("Segoe UI", Font.BOLD, 16);
+    public static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 14);
+    public static final Font FONT_SMALL_BOLD = new Font("Segoe UI", Font.BOLD, 14);
+    public static final Font FONT_ICON = new Font("Segoe UI Emoji", Font.PLAIN, 22);
+    public static final Font FONT_SIDEBAR = new Font("Segoe UI", Font.PLAIN, 16);
+    public static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 15);
+    public static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 15);
 
     // === DIMENSIONS ===
-    public static final int SIDEBAR_WIDTH = 220;
-    public static final int WINDOW_WIDTH = 1100;
-    public static final int WINDOW_HEIGHT = 720;
+    public static final int SIDEBAR_WIDTH = 260;
+    public static final int WINDOW_WIDTH = 1200;
+    public static final int WINDOW_HEIGHT = 800;
     public static final int BORDER_RADIUS = 10;
     public static final int PADDING = 16;
     public static final int PADDING_SMALL = 8;

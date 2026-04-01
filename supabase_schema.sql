@@ -60,13 +60,15 @@ CREATE TABLE IF NOT EXISTS contacts (
     email TEXT,                                 -- Email
     address TEXT,                               -- Địa chỉ cá nhân
     birthday DATE,                              -- Ngày sinh
+    avatar TEXT,                                -- Ảnh đại diện (Dạng chuỗi Base64)
     notes TEXT,                                 -- Ghi chú
     group_id INT REFERENCES contact_groups(id)  -- FK → contact_groups
         DEFAULT 5,                              -- Mặc định: OTHER (id=5)
     company_id UUID REFERENCES companies(id)    -- FK → companies
         ON DELETE SET NULL,                     -- Nếu xóa công ty → set NULL
     created_at TIMESTAMPTZ DEFAULT now(),
-    last_modified TIMESTAMPTZ DEFAULT now()
+    last_modified TIMESTAMPTZ DEFAULT now(),
+    is_deleted BOOLEAN DEFAULT FALSE            -- Soft delete (Thùng rác)
 );
 
 -- Indexes cho tìm kiếm và phát hiện trùng lặp
@@ -75,6 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
 CREATE INDEX IF NOT EXISTS idx_contacts_group ON contacts(group_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_is_deleted ON contacts(is_deleted);
 
 -- Trigger tự động cập nhật last_modified khi UPDATE
 CREATE OR REPLACE FUNCTION update_last_modified()
