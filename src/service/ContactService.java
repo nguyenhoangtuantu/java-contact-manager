@@ -215,7 +215,8 @@ public class ContactService {
             if (isBlank(primary.getNotes()) && !isBlank(other.getNotes()))
                 primary.setNotes(other.getNotes());
 
-            supabase.deleteContact(other.getId());
+            // Đã gộp thông tin → xóa vĩnh viễn (không cần giữ trong thùng rác)
+            supabase.permanentlyDeleteContact(other.getId());
         }
 
         return supabase.updateContact(primary);

@@ -6,11 +6,16 @@ import java.util.Properties;
 /**
  * Quản lý cấu hình kết nối Supabase.
  * Đọc từ file config.properties.
+ * Phiên đăng nhập được lưu dưới dạng userId (UUID) thay vì JWT token.
  */
 public class SupabaseConfig {
     private static final String CONFIG_FILE = "config.properties";
     private String supabaseUrl;
     private String supabaseKey;
+
+    // Phiên đăng nhập người dùng
+    private String currentUserId;    // UUID từ bảng users
+    private String currentUserEmail;
 
     private static SupabaseConfig instance;
 
@@ -28,7 +33,6 @@ public class SupabaseConfig {
     private void loadConfig() {
         Properties props = new Properties();
         File configFile = new File(CONFIG_FILE);
-
         if (configFile.exists()) {
             try (FileInputStream fis = new FileInputStream(configFile)) {
                 props.load(fis);
@@ -43,11 +47,9 @@ public class SupabaseConfig {
     public void saveConfig(String url, String key) {
         this.supabaseUrl = url;
         this.supabaseKey = key;
-
         Properties props = new Properties();
         props.setProperty("SUPABASE_URL", url);
         props.setProperty("SUPABASE_API_KEY", key);
-
         try (FileOutputStream fos = new FileOutputStream(CONFIG_FILE)) {
             props.store(fos, "Supabase Configuration - Quan ly Danh ba");
         } catch (IOException e) {
@@ -58,14 +60,32 @@ public class SupabaseConfig {
     public String getSupabaseUrl() { return supabaseUrl; }
     public String getSupabaseKey() { return supabaseKey; }
 
+    /** Lưu phiên đăng nhập sau khi xác thực thành công. */
+    public void setAuthSession(String userId, String email) {
+        this.currentUserId    = userId;
+        this.currentUserEmail = email;
+    }
+
+    /** Xóa phiên đăng nhập (đăng xuất). */
+    public void clearAuthSession() {
+        this.currentUserId    = null;
+        this.currentUserEmail = null;
+    }
+
+    public String getCurrentUserId()    { return currentUserId; }
+    public String getCurrentUserEmail() { return currentUserEmail; }
+
+    /** Kiểm tra đã đăng nhập chưa. */
+    public boolean isLoggedIn() {
+        return currentUserId != null && !currentUserId.isEmpty();
+    }
+
     public boolean isConfigured() {
         return supabaseUrl != null && !supabaseUrl.isEmpty()
                 && supabaseKey != null && !supabaseKey.isEmpty();
     }
 
-    /**
-     * Trả về REST API base URL.
-     */
+    /** Trả về REST API base URL (PostgREST). */
     public String getRestUrl() {
         if (supabaseUrl == null) return "";
         String url = supabaseUrl.endsWith("/") ? supabaseUrl : supabaseUrl + "/";

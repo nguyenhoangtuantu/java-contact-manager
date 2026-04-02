@@ -10,11 +10,14 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.*;
 
 /**
  * Service kết nối và thao tác CRUD với Supabase REST API (PostgREST).
- * Hỗ trợ 3 bảng: contacts, contact_groups, companies (3NF).
+ * Xác thực người dùng qua bảng users tự tạo (không dùng Supabase Auth).
+ * Phân quyền dữ liệu bằng cách lọc user_id trực tiếp trong query.
  */
 public class SupabaseService {
     private final HttpClient httpClient;
@@ -25,6 +28,7 @@ public class SupabaseService {
     private SupabaseService() {
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
+                .connectTimeout(Duration.ofSeconds(10))  // #12: tránh hang vô hạn
                 .build();
         this.config = SupabaseConfig.getInstance();
     }
@@ -36,30 +40,115 @@ public class SupabaseService {
         return instance;
     }
 
+    // ==================== XÁC THỰC (AUTH) ====================
+
+    /**
+     * Đăng nhập: tìm user theo email, so sánh password hash ở client.
+     */
+    public boolean loginUser(String email, String password) throws Exception {
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password";
+
+        HttpRequest request = buildGetRequest(url);
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() >= 400) {
+            System.err.println("[Login Error " + response.statusCode() + "]: " + response.body());
+            throw new Exception("Lỗi kết nối cơ sở dữ liệu!");
+        }
+
+        JsonArray arr = JsonParser.parseString(response.body()).getAsJsonArray();
+        if (arr.isEmpty()) {
+            throw new Exception("Email không tồn tại trong hệ thống!");
+        }
+
+        JsonObject user = arr.get(0).getAsJsonObject();
+        String storedHash = user.get("password").getAsString();
+        String inputHash  = sha256(password);
+
+        if (!MessageDigest.isEqual(storedHash.getBytes(StandardCharsets.UTF_8),
+                                   inputHash.getBytes(StandardCharsets.UTF_8))) {
+            throw new Exception("Mật khẩu không chính xác!");
+        }
+
+        // Lưu phiên đăng nhập
+        config.setAuthSession(user.get("id").getAsString(), email);
+        return true;
+    }
+
+    /**
+     * Đăng ký: kiểm tra email chưa tồn tại, rồi tạo user mới.
+     */
+    public boolean registerUser(String email, String password) throws Exception {
+        return registerUser(email, password, null);
+    }
+
+    public boolean registerUser(String email, String password, String displayName) throws Exception {
+        // Kiểm tra email đã tồn tại chưa
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String checkUrl = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id";
+        HttpResponse<String> checkRes = httpClient.send(buildGetRequest(checkUrl),
+                HttpResponse.BodyHandlers.ofString());
+        if (checkRes.statusCode() < 400) {
+            JsonArray existing = JsonParser.parseString(checkRes.body()).getAsJsonArray();
+            if (!existing.isEmpty()) {
+                throw new Exception("Email này đã được đăng ký. Vui lòng dùng email khác!");
+            }
+        }
+
+        // Tạo user mới
+        JsonObject body = new JsonObject();
+        body.addProperty("email", email);
+        body.addProperty("password", sha256(password));
+        if (displayName != null && !displayName.isBlank())
+            body.addProperty("display_name", displayName);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(config.getRestUrl() + "users"))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=representation")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            System.err.println("[Register Error " + response.statusCode() + "]: " + response.body());
+            throw new Exception("Đăng ký thất bại: " + response.body());
+        }
+
+        // Đăng nhập tự động sau khi đăng ký
+        return loginUser(email, password);
+    }
+
     // ==================== CONTACTS ====================
 
     /**
-     * Lấy tất cả liên hệ (JOIN contact_groups và companies).
+     * Lấy tất cả liên hệ của user hiện tại.
      */
     public List<Contact> getAllContacts() throws Exception {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
-                + "&is_deleted=eq.false&order=name.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                + "&is_deleted=eq.false"
+                + "&user_id=eq." + currentUserId()
+                + "&order=name.asc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseContactList(response.body());
     }
 
     /**
-     * Lấy liên hệ theo nhóm ưu tiên (group_id).
+     * Lấy liên hệ theo nhóm.
      */
     public List<Contact> getContactsByGroup(int groupId) throws Exception {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
-                + "&group_id=eq." + groupId + "&is_deleted=eq.false&order=name.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                + "&group_id=eq." + groupId
+                + "&is_deleted=eq.false"
+                + "&user_id=eq." + currentUserId()
+                + "&order=name.asc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseContactList(response.body());
     }
@@ -72,9 +161,10 @@ public class SupabaseService {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
                 + "&or=(name.ilike." + encoded + ",phone.ilike." + encoded + ",email.ilike." + encoded + ")"
-                + "&is_deleted=eq.false&order=name.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                + "&is_deleted=eq.false"
+                + "&user_id=eq." + currentUserId()
+                + "&order=name.asc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseContactList(response.body());
     }
@@ -105,7 +195,8 @@ public class SupabaseService {
      * Cập nhật liên hệ.
      */
     public Contact updateContact(Contact contact) throws Exception {
-        String url = config.getRestUrl() + "contacts?id=eq." + contact.getId();
+        String url = config.getRestUrl() + "contacts?id=eq." + contact.getId()
+                + "&user_id=eq." + currentUserId();
         String json = buildContactUpdateJson(contact);
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -127,7 +218,8 @@ public class SupabaseService {
      * Soft delete: Chuyển vào Thùng rác.
      */
     public void deleteContact(String id) throws Exception {
-        String url = config.getRestUrl() + "contacts?id=eq." + id;
+        String url = config.getRestUrl() + "contacts?id=eq." + id
+                + "&user_id=eq." + currentUserId();
         String json = "{\"is_deleted\": true}";
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -135,19 +227,18 @@ public class SupabaseService {
                 .header("apikey", config.getSupabaseKey())
                 .header("Authorization", "Bearer " + config.getSupabaseKey())
                 .header("Content-Type", "application/json")
-                .header("Prefer", "return=representation")
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        checkResponse(response);
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     /**
      * Khôi phục liên hệ từ Thùng rác.
      */
     public void restoreContact(String id) throws Exception {
-        String url = config.getRestUrl() + "contacts?id=eq." + id;
+        String url = config.getRestUrl() + "contacts?id=eq." + id
+                + "&user_id=eq." + currentUserId();
         String json = "{\"is_deleted\": false}";
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -155,27 +246,25 @@ public class SupabaseService {
                 .header("apikey", config.getSupabaseKey())
                 .header("Authorization", "Bearer " + config.getSupabaseKey())
                 .header("Content-Type", "application/json")
-                .header("Prefer", "return=representation")
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        checkResponse(response);
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     /**
-     * Xóa vĩnh viễn liên hệ theo ID.
+     * Xóa vĩnh viễn liên hệ.
      */
     public void permanentlyDeleteContact(String id) throws Exception {
-        String url = config.getRestUrl() + "contacts?id=eq." + id;
+        String url = config.getRestUrl() + "contacts?id=eq." + id
+                + "&user_id=eq." + currentUserId();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("apikey", config.getSupabaseKey())
                 .header("Authorization", "Bearer " + config.getSupabaseKey())
                 .DELETE()
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        checkResponse(response);
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     /**
@@ -184,38 +273,30 @@ public class SupabaseService {
     public List<Contact> getDeletedContacts() throws Exception {
         String url = config.getRestUrl()
                 + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
-                + "&is_deleted=eq.true&order=name.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                + "&is_deleted=eq.true"
+                + "&user_id=eq." + currentUserId()
+                + "&order=name.asc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseContactList(response.body());
     }
 
     /**
-     * Xóa nhiều liên hệ theo danh sách ID (soft delete).
+     * Xóa nhiều liên hệ (soft delete).
      */
     public void deleteContacts(List<String> ids) throws Exception {
-        for (String id : ids) {
-            deleteContact(id);
-        }
+        for (String id : ids) deleteContact(id);
     }
 
-    // ==================== CONTACT_GROUPS ====================
+    // ==================== CONTACT_GROUPS (global) ====================
 
-    /**
-     * Lấy tất cả nhóm ưu tiên.
-     */
     public List<GroupInfo> getAllGroups() throws Exception {
         String url = config.getRestUrl() + "contact_groups?select=*&order=id.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseGroupList(response.body());
     }
 
-    /**
-     * Thêm nhóm ưu tiên mới.
-     */
     public GroupInfo insertGroup(GroupInfo group) throws Exception {
         String url = config.getRestUrl() + "contact_groups";
         JsonObject json = new JsonObject();
@@ -240,9 +321,6 @@ public class SupabaseService {
         return result.isEmpty() ? group : result.get(0);
     }
 
-    /**
-     * Xóa nhóm ưu tiên theo ID.
-     */
     public void deleteGroup(int groupId) throws Exception {
         String url = config.getRestUrl() + "contact_groups?id=eq." + groupId;
         HttpRequest request = HttpRequest.newBuilder()
@@ -251,30 +329,25 @@ public class SupabaseService {
                 .header("Authorization", "Bearer " + config.getSupabaseKey())
                 .DELETE()
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        checkResponse(response);
+        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     // ==================== COMPANIES ====================
 
-    /**
-     * Lấy tất cả công ty.
-     */
     public List<Company> getAllCompanies() throws Exception {
-        String url = config.getRestUrl() + "companies?select=*&order=name.asc";
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        String url = config.getRestUrl() + "companies?select=*"
+                + "&user_id=eq." + currentUserId()
+                + "&order=name.asc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseCompanyList(response.body());
     }
 
-    /**
-     * Thêm công ty mới.
-     */
     public Company insertCompany(Company company) throws Exception {
         String url = config.getRestUrl() + "companies";
         JsonObject json = new JsonObject();
         json.addProperty("name", company.getName());
+        json.addProperty("user_id", currentUserId());
         if (company.getAddress() != null) json.addProperty("address", company.getAddress());
         if (company.getPhone() != null) json.addProperty("phone", company.getPhone());
         if (company.getWebsite() != null) json.addProperty("website", company.getWebsite());
@@ -294,38 +367,26 @@ public class SupabaseService {
         return result.isEmpty() ? company : result.get(0);
     }
 
-    /**
-     * Tìm công ty theo tên (hoặc tạo mới nếu chưa có).
-     */
     public Company findOrCreateCompany(String companyName) throws Exception {
         if (companyName == null || companyName.isBlank()) return null;
 
         String encoded = URLEncoder.encode(companyName.trim(), StandardCharsets.UTF_8);
-        String url = config.getRestUrl() + "companies?name=eq." + encoded;
-        HttpRequest request = buildGetRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        String url = config.getRestUrl() + "companies?name=eq." + encoded
+                + "&user_id=eq." + currentUserId();
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         List<Company> existing = parseCompanyList(response.body());
+        if (!existing.isEmpty()) return existing.get(0);
 
-        if (!existing.isEmpty()) {
-            return existing.get(0);
-        }
-
-        // Tạo mới
-        Company newCompany = new Company(companyName.trim());
-        return insertCompany(newCompany);
+        return insertCompany(new Company(companyName.trim()));
     }
 
     // ==================== TEST CONNECTION ====================
 
-    /**
-     * Kiểm tra kết nối Supabase.
-     */
     public boolean testConnection() {
         try {
             String url = config.getRestUrl() + "contact_groups?select=id&limit=1";
-            HttpRequest request = buildGetRequest(url);
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
             return response.statusCode() >= 200 && response.statusCode() < 300;
         } catch (Exception e) {
             System.err.println("Lỗi kết nối Supabase: " + e.getMessage());
@@ -334,6 +395,20 @@ public class SupabaseService {
     }
 
     // ==================== PRIVATE HELPERS ====================
+
+    /** ID của user đang đăng nhập. */
+    private String currentUserId() {
+        return config.getCurrentUserId();
+    }
+
+    /** Hash SHA-256 cho mật khẩu. */
+    public static String sha256(String input) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : hash) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
 
     private HttpRequest buildGetRequest(String url) {
         return HttpRequest.newBuilder()
@@ -347,6 +422,7 @@ public class SupabaseService {
 
     private String buildContactInsertJson(Contact c) {
         JsonObject json = new JsonObject();
+        json.addProperty("user_id", currentUserId());    // ← bắt buộc
         if (c.getName() != null) json.addProperty("name", c.getName());
         if (c.getPhone() != null) json.addProperty("phone", c.getPhone());
         if (c.getEmail() != null) json.addProperty("email", c.getEmail());
@@ -388,42 +464,27 @@ public class SupabaseService {
         return json.toString();
     }
 
-    /**
-     * Parse contact list với JOIN data (contact_groups, companies).
-     */
     private List<Contact> parseContactList(String jsonBody) {
         List<Contact> contacts = new ArrayList<>();
         JsonArray array = JsonParser.parseString(jsonBody).getAsJsonArray();
         for (JsonElement el : array) {
             JsonObject obj = el.getAsJsonObject();
             Contact c = parseContactBase(obj);
-
-            // Parse joined contact_groups
             if (obj.has("contact_groups") && !obj.get("contact_groups").isJsonNull()) {
-                JsonObject groupObj = obj.getAsJsonObject("contact_groups");
-                c.setContactGroupName(getStr(groupObj, "name"));
+                c.setContactGroupName(getStr(obj.getAsJsonObject("contact_groups"), "name"));
             }
-
-            // Parse joined companies
             if (obj.has("companies") && !obj.get("companies").isJsonNull()) {
-                JsonObject companyObj = obj.getAsJsonObject("companies");
-                c.setCompanyName(getStr(companyObj, "name"));
+                c.setCompanyName(getStr(obj.getAsJsonObject("companies"), "name"));
             }
-
             contacts.add(c);
         }
         return contacts;
     }
 
-    /**
-     * Parse contact list đơn giản (không JOIN).
-     */
     private List<Contact> parseContactListSimple(String jsonBody) {
         List<Contact> contacts = new ArrayList<>();
         JsonArray array = JsonParser.parseString(jsonBody).getAsJsonArray();
-        for (JsonElement el : array) {
-            contacts.add(parseContactBase(el.getAsJsonObject()));
-        }
+        for (JsonElement el : array) contacts.add(parseContactBase(el.getAsJsonObject()));
         return contacts;
     }
 
@@ -441,9 +502,8 @@ public class SupabaseService {
         c.setCompanyId(getStr(obj, "company_id"));
         c.setCreatedAt(getStr(obj, "created_at"));
         c.setLastModified(getStr(obj, "last_modified"));
-        if (obj.has("is_deleted") && !obj.get("is_deleted").isJsonNull()) {
+        if (obj.has("is_deleted") && !obj.get("is_deleted").isJsonNull())
             c.setDeleted(obj.get("is_deleted").getAsBoolean());
-        }
         return c;
     }
 
@@ -482,17 +542,11 @@ public class SupabaseService {
     }
 
     private String getStr(JsonObject obj, String key) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
-            return obj.get(key).getAsString();
-        }
-        return null;
+        return (obj.has(key) && !obj.get(key).isJsonNull()) ? obj.get(key).getAsString() : null;
     }
 
     private int getInt(JsonObject obj, String key, int defaultVal) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
-            return obj.get(key).getAsInt();
-        }
-        return defaultVal;
+        return (obj.has(key) && !obj.get(key).isJsonNull()) ? obj.get(key).getAsInt() : defaultVal;
     }
 
     private void checkResponse(HttpResponse<String> response) throws Exception {

@@ -1,5 +1,4 @@
 import com.formdev.flatlaf.FlatDarkLaf;
-import ui.MainFrame;
 
 import javax.swing.*;
 
@@ -27,8 +26,11 @@ public class Main {
 
         // Chạy trên EDT
         SwingUtilities.invokeLater(() -> {
-            MainFrame frame = new MainFrame();
-            frame.setVisible(true);
+            ui.LoginFrame login = new ui.LoginFrame();
+            if (!login.checkSupabaseConfig()) {
+                System.exit(0);
+            }
+            login.setVisible(true);
         });
     }
 }

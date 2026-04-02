@@ -137,3 +137,30 @@ END $$;
 --        - Thông tin nhóm → tách ra contact_groups
 --        - Thông tin công ty → tách ra companies
 -- =====================================================
+
+-- =====================================================
+-- BẢO MẬT DỮ LIỆU TỪNG NGƯỜI DÙNG (Multi-Tenant / RLS)
+-- Yêu cầu Đăng nhập để thao tác và phân tách Dữ liệu.
+-- =====================================================
+
+-- 1. Thêm cột user_id vào các bảng và mặc định gán theo ID tài khoản đang login
+ALTER TABLE contact_groups ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+
+-- 2. Bật tính năng Row Level Security (Tường lửa)
+ALTER TABLE contact_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+
+-- 3. Tạo chính sách phân quyền cho bảng contact_groups
+CREATE POLICY "Cho phép User xem/thêm/sửa nhóm của họ" ON contact_groups
+FOR ALL USING (auth.uid() = user_id);
+
+-- 4. Tạo chính sách phân quyền cho bảng companies
+CREATE POLICY "Cho phép User thao tác công ty của họ" ON companies
+FOR ALL USING (auth.uid() = user_id);
+
+-- 5. Tạo chính sách phân quyền cho bảng contacts 
+CREATE POLICY "Cho phép User quản lý danh bạ của riêng mình" ON contacts
+FOR ALL USING (auth.uid() = user_id);

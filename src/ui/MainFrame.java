@@ -1,9 +1,10 @@
 package ui;
 
+
 import config.SupabaseConfig;
 import model.GroupInfo;
 import service.ContactService;
-import service.SupabaseService;
+
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,56 +34,10 @@ public class MainFrame extends JFrame {
         setMinimumSize(new Dimension(900, 600));
         getContentPane().setBackground(UIConstants.BG_PRIMARY);
 
-        if (!checkSupabaseConfig()) {
-            System.exit(0);
-        }
-
         initComponents();
         contactPanel.loadContacts();
         refreshGroupList();
         checkUpcomingBirthdays();
-    }
-
-    private boolean checkSupabaseConfig() {
-        SupabaseConfig config = SupabaseConfig.getInstance();
-        if (!config.isConfigured()) {
-            return showConfigDialog(config);
-        }
-        if (!SupabaseService.getInstance().testConnection()) {
-            int retry = JOptionPane.showConfirmDialog(this,
-                    "Không thể kết nối Supabase!\nBạn có muốn nhập lại thông tin kết nối?",
-                    "Lỗi kết nối", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
-            if (retry == JOptionPane.YES_OPTION) {
-                return showConfigDialog(config);
-            }
-            return false;
-        }
-        return true;
-    }
-
-    private boolean showConfigDialog(SupabaseConfig config) {
-        JPanel panel = new JPanel(new GridLayout(4, 1, 5, 5));
-        panel.setPreferredSize(new Dimension(450, 140));
-        JLabel urlLabel = new JLabel("Supabase URL:");
-        JTextField urlField = new JTextField(config.getSupabaseUrl());
-        JLabel keyLabel = new JLabel("Supabase API Key (anon):");
-        JTextField keyField = new JTextField(config.getSupabaseKey());
-        panel.add(urlLabel); panel.add(urlField);
-        panel.add(keyLabel); panel.add(keyField);
-
-        int result = JOptionPane.showConfirmDialog(null, panel,
-                "⚙️ Cấu hình Supabase", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result == JOptionPane.OK_OPTION) {
-            String url = urlField.getText().trim();
-            String key = keyField.getText().trim();
-            if (url.isEmpty() || key.isEmpty()) {
-                JOptionPane.showMessageDialog(null, "Vui lòng nhập đầy đủ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
-            config.saveConfig(url, key);
-            return true;
-        }
-        return false;
     }
 
     private void initComponents() {
@@ -231,7 +186,42 @@ public class MainFrame extends JFrame {
 
         sidebar.add(Box.createVerticalGlue());
 
-        sidebar.add(Box.createVerticalStrut(12));
+        // --- Hiển thị email và đăng xuất --- //
+        JPanel authPanel = new JPanel(new BorderLayout());
+        authPanel.setOpaque(false);
+        authPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        authPanel.setBorder(BorderFactory.createEmptyBorder(0, 16, 16, 16));
+
+        String email = SupabaseConfig.getInstance().getCurrentUserEmail();
+        JLabel userLabel = new JLabel("👤 " + (email != null ? email : ""));
+        userLabel.setFont(UIConstants.FONT_SMALL);
+        userLabel.setForeground(UIConstants.TEXT_MUTED);
+
+        JButton logoutBtn = new JButton("🚪");
+        logoutBtn.setToolTipText("Đăng xuất");
+        logoutBtn.setFont(UIConstants.FONT_BODY);
+        logoutBtn.setForeground(UIConstants.DANGER);
+        logoutBtn.setOpaque(false);
+        logoutBtn.setContentAreaFilled(false);
+        logoutBtn.setBorderPainted(false);
+        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        logoutBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắn chắn muốn đăng xuất?", "Đăng xuất", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                SupabaseConfig.getInstance().clearAuthSession();
+                setVisible(false);
+                dispose();
+                LoginFrame login = new LoginFrame();
+                if (login.checkSupabaseConfig()) {
+                    login.setVisible(true);
+                }
+            }
+        });
+
+        authPanel.add(userLabel, BorderLayout.CENTER);
+        authPanel.add(logoutBtn, BorderLayout.EAST);
+        
+        sidebar.add(authPanel);
 
         return sidebar;
     }
