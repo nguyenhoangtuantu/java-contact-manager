@@ -3,76 +3,94 @@ package ui;
 import java.awt.*;
 
 /**
- * Hằng số giao diện: màu sắc, font, kích thước cho toàn bộ ứng dụng.
- * Dark theme hiện đại.
+ * Hằng số giao diện: Light theme hiện đại.
+ * Sử dụng Unicode emoji thay vì Segoe MDL2 Assets để đảm bảo tương thích.
  */
 public class UIConstants {
 
-    // === COLORS ===
-    public static final Color BG_PRIMARY = new Color(18, 18, 24);
-    public static final Color BG_SECONDARY = new Color(26, 26, 36);
-    public static final Color BG_SIDEBAR = new Color(22, 22, 32);
-    public static final Color BG_CARD = new Color(32, 32, 44);
-    public static final Color BG_HOVER = new Color(42, 42, 58);
-    public static final Color BG_SELECTED = new Color(50, 50, 70);
-    public static final Color BG_INPUT = new Color(38, 38, 52);
+    // === COLORS — Light Theme ===
+    public static final Color BG_PRIMARY    = new Color(243, 244, 246);
+    public static final Color BG_SECONDARY  = new Color(255, 255, 255);
+    public static final Color BG_SIDEBAR    = new Color(255, 255, 255);
+    public static final Color BG_CARD       = new Color(249, 250, 251);
+    public static final Color BG_HOVER      = new Color(239, 246, 255);
+    public static final Color BG_SELECTED   = new Color(219, 234, 254);
+    public static final Color BG_INPUT      = new Color(255, 255, 255);
 
-    public static final Color ACCENT = new Color(74, 158, 255);
-    public static final Color ACCENT_HOVER = new Color(100, 175, 255);
-    public static final Color ACCENT_DARK = new Color(45, 100, 180);
+    public static final Color ACCENT        = new Color(59, 130, 246);
+    public static final Color ACCENT_HOVER  = new Color(37,  99, 235);
+    public static final Color ACCENT_DARK   = new Color(29,  78, 216);
 
-    public static final Color TEXT_PRIMARY = new Color(230, 230, 240);
-    public static final Color TEXT_SECONDARY = new Color(150, 150, 170);
-    public static final Color TEXT_MUTED = new Color(100, 100, 120);
+    public static final Color TEXT_PRIMARY   = new Color(17,  24,  39);
+    public static final Color TEXT_SECONDARY = new Color(75,  85,  99);
+    public static final Color TEXT_MUTED     = new Color(156, 163, 175);
 
-    public static final Color BORDER = new Color(55, 55, 75);
-    public static final Color BORDER_LIGHT = new Color(70, 70, 90);
+    public static final Color BORDER        = new Color(229, 231, 235);
+    public static final Color BORDER_LIGHT  = new Color(243, 244, 246);
 
-    public static final Color SUCCESS = new Color(75, 200, 110);
-    public static final Color WARNING = new Color(255, 190, 50);
-    public static final Color DANGER = new Color(255, 75, 75);
+    public static final Color SUCCESS       = new Color(22, 163,  74);
+    public static final Color WARNING       = new Color(234, 179,   8);
+    public static final Color DANGER        = new Color(220,  38,  38);
 
-    public static final Color TABLE_ROW_ALT = new Color(28, 28, 40);
+    public static final Color TABLE_ROW_ALT = new Color(249, 250, 251);
 
-    // === COLORS FOR GROUPS ===
-    public static final Color GROUP_FAVORITES = new Color(255, 75, 75);
-    public static final Color GROUP_FAMILY = new Color(75, 200, 110);
-    public static final Color GROUP_WORK = new Color(74, 158, 255);
-    public static final Color GROUP_FRIENDS = new Color(255, 165, 50);
-    public static final Color GROUP_OTHER = new Color(150, 150, 160);
+    // === GROUP COLORS ===
+    public static final Color GROUP_FAVORITES = new Color(239,  68,  68);
+    public static final Color GROUP_FAMILY    = new Color( 22, 163,  74);
+    public static final Color GROUP_WORK      = new Color( 59, 130, 246);
+    public static final Color GROUP_FRIENDS   = new Color(234,  88,  12);
+    public static final Color GROUP_OTHER     = new Color(107, 114, 128);
 
     // === FONTS ===
-    public static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 28);
-    public static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.BOLD, 20);
-    public static final Font FONT_BODY = new Font("Segoe UI", Font.PLAIN, 16);
-    public static final Font FONT_BODY_BOLD = new Font("Segoe UI", Font.BOLD, 16);
-    public static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 14);
-    public static final Font FONT_SMALL_BOLD = new Font("Segoe UI", Font.BOLD, 14);
-    public static final Font FONT_ICON = new Font("Segoe UI Emoji", Font.PLAIN, 22);
-    public static final Font FONT_SIDEBAR = new Font("Segoe UI", Font.PLAIN, 16);
-    public static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 15);
-    public static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 15);
+    public static final Font FONT_TITLE        = new Font("Segoe UI", Font.BOLD,  20);
+    public static final Font FONT_SUBTITLE     = new Font("Segoe UI", Font.BOLD,  16);
+    public static final Font FONT_BODY         = new Font("Segoe UI", Font.PLAIN, 14);
+    public static final Font FONT_BODY_BOLD    = new Font("Segoe UI", Font.BOLD,  14);
+    public static final Font FONT_SMALL        = new Font("Segoe UI", Font.PLAIN, 12);
+    public static final Font FONT_SMALL_BOLD   = new Font("Segoe UI", Font.BOLD,  12);
+    public static final Font FONT_SIDEBAR      = new Font("Segoe UI", Font.PLAIN, 13);
+    public static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD,  11);
+    public static final Font FONT_TABLE        = new Font("Segoe UI", Font.PLAIN, 13);
+    public static final Font FONT_ICON_EMOJI   = new Font("Segoe UI Emoji", Font.PLAIN, 14);
+
+    // === ICONS — Sử dụng Unicode/Emoji đại diện ===
+    public static final String ICON_CONTACTS = "\uD83D\uDCCB";  // 📋
+    public static final String ICON_RECENT   = "\uD83D\uDD51";  // 🕑
+    public static final String ICON_MERGE    = "\uD83D\uDD00";  // 🔀
+    public static final String ICON_CLEANUP  = "\uD83E\uDDF9";  // 🧹
+    public static final String ICON_TRASH    = "\uD83D\uDDD1";  // 🗑
+    public static final String ICON_ADD      = "+";
+    public static final String ICON_EDIT     = "\u270E";         // ✎
+    public static final String ICON_SEARCH   = "\uD83D\uDD0D";  // 🔍
+    public static final String ICON_USER     = "\uD83D\uDC64";  // 👤
+    public static final String ICON_LOGOUT   = "\u2192";         // →
+    public static final String ICON_APP      = "\uD83D\uDCDA";  // 📚
+    public static final String ICON_SAVE     = "\uD83D\uDCBE";  // 💾
+    public static final String ICON_CLOCK    = "\u23F0";         // ⏰
+    public static final String ICON_IMAGE    = "\uD83D\uDDBC";  // 🖼
+    public static final String ICON_SETTINGS = "\u2699";         // ⚙
+    public static final String ICON_RESTORE  = "\u21A9";         // ↩
+    public static final String ICON_SPARKLE  = "\u2728";         // ✨
+    public static final String ICON_UPLOAD   = "\u2191";         // ↑
 
     // === DIMENSIONS ===
-    public static final int SIDEBAR_WIDTH = 260;
-    public static final int WINDOW_WIDTH = 1200;
-    public static final int WINDOW_HEIGHT = 800;
-    public static final int BORDER_RADIUS = 10;
-    public static final int PADDING = 16;
-    public static final int PADDING_SMALL = 8;
+    public static final int SIDEBAR_WIDTH  = 210;
+    public static final int WINDOW_WIDTH   = 1200;
+    public static final int WINDOW_HEIGHT  = 760;
+    public static final int BORDER_RADIUS  = 8;
+    public static final int PADDING        = 16;
+    public static final int PADDING_SMALL  = 8;
 
-    // === UTILITY METHODS ===
-
-    /**
-     * Tạo màu với alpha (opacity).
-     */
+    // === UTILITY ===
     public static Color withAlpha(Color color, int alpha) {
         return new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha);
     }
 
-    /**
-     * Tạo border compound bo tròn.
-     */
+    public static String encodeColor(Color c) {
+        if (c == null) return "#000000";
+        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
+    }
+
     public static javax.swing.border.Border createPaddingBorder(int padding) {
         return javax.swing.BorderFactory.createEmptyBorder(padding, padding, padding, padding);
     }

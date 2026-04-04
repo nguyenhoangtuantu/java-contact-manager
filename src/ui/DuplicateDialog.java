@@ -21,7 +21,7 @@ public class DuplicateDialog extends JDialog {
     private boolean changed = false;
 
     public DuplicateDialog(Frame parent) {
-        super(parent, "🔄 Hợp nhất liên hệ trùng lặp", true);
+        super(parent, "🔀 Hợp nhất liên hệ trùng lặp", true);
         this.contactService = ContactService.getInstance();
         setSize(650, 550);
         setLocationRelativeTo(parent);
@@ -39,7 +39,7 @@ public class DuplicateDialog extends JDialog {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
 
-        JLabel title = new JLabel("🔄 Phát hiện liên hệ trùng lặp");
+        JLabel title = new JLabel("🔀 Phát hiện liên hệ trùng lặp");
         title.setFont(UIConstants.FONT_SUBTITLE);
         title.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -85,7 +85,7 @@ public class DuplicateDialog extends JDialog {
         JPanel bottomActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         bottomActions.setOpaque(false);
 
-        JButton mergeAllBtn = createButton("🔗 Hợp nhất tất cả", UIConstants.SUCCESS);
+        JButton mergeAllBtn = createButton("🔀 Hợp nhất tất cả", UIConstants.SUCCESS);
         mergeAllBtn.addActionListener(e -> mergeAll());
 
         JButton closeBtn = createButton("Đóng", UIConstants.BG_CARD);

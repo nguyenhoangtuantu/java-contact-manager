@@ -129,7 +129,7 @@ public class SupabaseService {
      */
     public List<Contact> getAllContacts() throws Exception {
         String url = config.getRestUrl()
-                + "contacts?select=*,contact_groups(name,display_name,icon),companies(name)"
+                + "contacts?select=id,name,phone,email,address,birthday,notes,group_id,company_id,created_at,last_modified,is_deleted,avatar,user_id,contact_groups(name,display_name,icon),companies(name)"
                 + "&is_deleted=eq.false"
                 + "&user_id=eq." + currentUserId()
                 + "&order=name.asc";
@@ -288,8 +288,11 @@ public class SupabaseService {
         for (String id : ids) deleteContact(id);
     }
 
-    // ==================== CONTACT_GROUPS (global) ====================
+    // ==================== CONTACT_GROUPS ====================
 
+    /**
+     * Lấy tất cả nhóm.
+     */
     public List<GroupInfo> getAllGroups() throws Exception {
         String url = config.getRestUrl() + "contact_groups?select=*&order=id.asc";
         HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
@@ -297,6 +300,9 @@ public class SupabaseService {
         return parseGroupList(response.body());
     }
 
+    /**
+     * Thêm nhóm mới.
+     */
     public GroupInfo insertGroup(GroupInfo group) throws Exception {
         String url = config.getRestUrl() + "contact_groups";
         JsonObject json = new JsonObject();
@@ -461,6 +467,8 @@ public class SupabaseService {
         } else {
             json.add("company_id", JsonNull.INSTANCE);
         }
+        // Tự động cập nhật last_modified (backup cho trigger DB)
+        json.addProperty("last_modified", java.time.Instant.now().toString());
         return json.toString();
     }
 

@@ -250,7 +250,7 @@ public class LoginFrame extends JFrame {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(34, 40, 30, 40));
 
-        card.add(lbl("Tạo tài khoản 🚀", 23, Font.BOLD, TXT_WHITE));
+        card.add(lbl("Tạo tài khoản " + UIConstants.ICON_SPARKLE, 23, Font.BOLD, TXT_WHITE));
         card.add(Box.createVerticalStrut(4));
         card.add(lbl("Điền thông tin để bắt đầu", 13, Font.PLAIN, TXT_WHITE_MUT));
         card.add(Box.createVerticalStrut(22));
@@ -406,7 +406,7 @@ public class LoginFrame extends JFrame {
 
     private void switchTo(String card) {
         cardLayout.show(cardRoot, card);
-        setTitle(card.equals("LOGIN") ? "Danh Bạ — Đăng nhập" : "Danh Bạ — Đăng ký");
+        setTitle(card.equals("LOGIN") ? UIConstants.ICON_USER + " Đăng nhập" : UIConstants.ICON_APP + " Đăng ký");
     }
 
     // =========================================================================
@@ -635,7 +635,7 @@ public class LoginFrame extends JFrame {
         panel.add(new JLabel("Supabase URL:")); panel.add(urlField);
         panel.add(new JLabel("Supabase API Key (anon):")); panel.add(keyField);
         int result = JOptionPane.showConfirmDialog(this, panel,
-                "⚙️ Cấu hình Supabase", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                UIConstants.ICON_SETTINGS + " Cấu hình Supabase", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
             String url = urlField.getText().trim(), key = keyField.getText().trim();
             if (url.isEmpty() || key.isEmpty()) {

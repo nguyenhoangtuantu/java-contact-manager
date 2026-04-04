@@ -71,9 +71,9 @@ public class CleanupDialog extends JDialog {
         stalePanel = createTabPanel();
         noPhonePanel = createTabPanel();
 
-        tabbedPane.addTab("📝 Thiếu thông tin", incompletePanel);
-        tabbedPane.addTab("📅 Lâu không cập nhật", stalePanel);
-        tabbedPane.addTab("📵 Không có SĐT", noPhonePanel);
+        tabbedPane.addTab("✎ Thiếu thông tin", incompletePanel);
+        tabbedPane.addTab("⏰ Lâu không cập nhật", stalePanel);
+        tabbedPane.addTab("📱 Không có SĐT", noPhonePanel);
 
         mainPanel.add(tabbedPane, BorderLayout.CENTER);
 
@@ -82,7 +82,7 @@ public class CleanupDialog extends JDialog {
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
 
-        JButton refreshBtn = createButton("🔄 Quét lại", UIConstants.ACCENT);
+        JButton refreshBtn = createButton("🔍 Quét lại", UIConstants.ACCENT);
         refreshBtn.addActionListener(e -> loadAllTabs());
 
         JButton closeBtn = createButton("Đóng", UIConstants.BG_CARD);
@@ -241,7 +241,7 @@ public class CleanupDialog extends JDialog {
                 }
             });
 
-            JButton deleteBtn = createButton("🗑 Xóa đã chọn", UIConstants.DANGER);
+            JButton deleteBtn = createButton("✖ Xóa đã chọn", UIConstants.DANGER);
             deleteBtn.addActionListener(e -> {
                 List<Contact> toDelete = new ArrayList<>();
                 for (int i = 0; i < model.getRowCount(); i++) {

@@ -69,7 +69,8 @@ public class ContactDialog extends JDialog {
         mainPanel.setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
 
         // Header
-        JLabel header = new JLabel(contact.getName() != null ? "✏️ Sửa liên hệ" : "➕ Thêm liên hệ mới");
+        String headerText = contact.getName() != null ? "✎ Sửa liên hệ" : "+ Thêm liên hệ mới";
+        JLabel header = new JLabel(headerText);
         header.setFont(UIConstants.FONT_SUBTITLE);
         header.setForeground(UIConstants.TEXT_PRIMARY);
         header.setAlignmentX(LEFT_ALIGNMENT);
@@ -123,8 +124,8 @@ public class ContactDialog extends JDialog {
         notesLabel.setForeground(UIConstants.TEXT_SECONDARY);
         notesHeader.add(notesLabel, BorderLayout.WEST);
 
-        JButton timeBtn = new JButton("🕒 Thêm ngày giờ");
-        timeBtn.setFont(UIConstants.FONT_SMALL);
+        JButton timeBtn = new JButton("⏰ Thêm ngày giờ");
+        timeBtn.setFont(UIConstants.FONT_SMALL_BOLD);
         timeBtn.setForeground(UIConstants.TEXT_PRIMARY);
         timeBtn.setBackground(UIConstants.BG_CARD);
         timeBtn.setFocusPainted(false);
@@ -167,7 +168,7 @@ public class ContactDialog extends JDialog {
         JButton cancelBtn = createButton("Hủy", UIConstants.BG_CARD);
         cancelBtn.addActionListener(e -> dispose());
 
-        JButton saveBtn = createButton("💾 Lưu", UIConstants.ACCENT);
+        JButton saveBtn = createButton("Lưu", UIConstants.ACCENT);
         saveBtn.addActionListener(e -> saveContact());
 
         buttonPanel.add(cancelBtn);
@@ -394,7 +395,8 @@ public class ContactDialog extends JDialog {
 
     private String expandYear(String yy) {
         int y = Integer.parseInt(yy);
-        return (y <= 30 ? "20" : "19") + padZero(yy);
+        String prefix = (y <= 30) ? "20" : "19";
+        return prefix + (yy.length() == 1 ? "0" + yy : yy);
     }
 
     private String padZero(String s) {
@@ -404,6 +406,7 @@ public class ContactDialog extends JDialog {
     private JButton createButton(String text, Color bg) {
         JButton btn = new JButton(text);
         btn.setFont(UIConstants.FONT_BODY_BOLD);
+
         btn.setForeground(Color.WHITE);
         btn.setBackground(bg);
         btn.setFocusPainted(false);
@@ -436,7 +439,7 @@ public class ContactDialog extends JDialog {
         avatarLabel.setMaximumSize(new Dimension(80, 80));
         updateAvatarDisplay();
 
-        JButton chooseBtn = createButton("🖼 Chọn ảnh", UIConstants.BG_CARD);
+        JButton chooseBtn = createButton("Chọn ảnh", UIConstants.BG_CARD);
         chooseBtn.setPreferredSize(new Dimension(100, 36));
         chooseBtn.addActionListener(e -> chooseAvatar());
 
@@ -464,7 +467,7 @@ public class ContactDialog extends JDialog {
         avatarLabel.setIcon(null);
         avatarLabel.setText("👤");
         avatarLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
+        avatarLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 36));
         avatarLabel.setOpaque(true);
         avatarLabel.setBackground(UIConstants.BG_INPUT);
         avatarLabel.setForeground(UIConstants.TEXT_MUTED);

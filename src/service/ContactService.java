@@ -21,7 +21,7 @@ public class ContactService {
         this.supabase = SupabaseService.getInstance();
     }
 
-    public static ContactService getInstance() {
+    public static synchronized ContactService getInstance() {
         if (instance == null) {
             instance = new ContactService();
         }
@@ -316,6 +316,21 @@ public class ContactService {
                     }
                 })
                 .collect(Collectors.toList());
+    }
+
+    // ==================== GẦN ĐÂY ====================
+
+    /**
+     * Lấy N liên hệ được chỉnh sửa gần nhất (sắp xếp theo lastModified desc).
+     */
+    public List<Contact> getRecentContacts(int limit) throws Exception {
+        List<Contact> all = getAllContacts();
+        all.sort((a, b) -> {
+            String ma = a.getLastModified() != null ? a.getLastModified() : "";
+            String mb = b.getLastModified() != null ? b.getLastModified() : "";
+            return mb.compareTo(ma); // desc
+        });
+        return all.subList(0, Math.min(limit, all.size()));
     }
 
     // ==================== HELPERS ====================

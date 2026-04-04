@@ -35,7 +35,11 @@ public class GroupInfo {
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
 
-    public String getIcon() { return icon; }
+    public String getIcon() {
+        if (icon == null) return "";
+        return icon;
+    }
+
     public void setIcon(String icon) { this.icon = icon; }
 
     public String getColorHex() { return colorHex; }
