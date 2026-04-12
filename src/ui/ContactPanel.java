@@ -624,21 +624,35 @@ public class ContactPanel extends JPanel {
         new SwingWorker<Integer, Void>() {
             @Override protected Integer doInBackground() throws Exception {
                 int count = 0;
-                try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                        new FileInputStream(file), "UTF-8"))) {
                     String line;
                     boolean firstLine = true;
                     while ((line = br.readLine()) != null) {
+                        if (line.trim().isEmpty()) continue;
                         if (firstLine) { firstLine = false;
                             if (line.toLowerCase().contains("name") || line.toLowerCase().contains("tên")) continue;
                         }
-                        String[] parts = line.split(",", -1);
-                        if (parts.length == 0) continue;
+                        List<String> parts = parseCsvLine(line);
+                        if (parts.isEmpty()) continue;
+
                         Contact c = new Contact();
-                        c.setName(parts[0].trim());
-                        if (parts.length > 1) c.setPhone(parts[1].trim());
-                        if (parts.length > 2) c.setEmail(parts[2].trim());
+                        c.setName(csvVal(parts, 0));                          // name
+                        c.setPhone(csvVal(parts, 1));                         // phone
+                        c.setEmail(csvVal(parts, 2));                         // email
+                        c.setAddress(csvVal(parts, 3));                       // address
+                        c.setBirthday(convertCsvDate(csvVal(parts, 4)));      // birthday
+                        c.setNotes(csvVal(parts, 5));                         // notes
+
+                        // group_id: hỗ trợ tên (FAVORITES, FAMILY...) hoặc số (1-5)
+                        String groupStr = csvVal(parts, 6);
+                        c.setGroupId(mapGroupId(groupStr));
+
+                        // company name (cột 7)
+                        String companyName = csvVal(parts, 7);
+
                         if (!c.getName().isEmpty()) {
-                            contactService.addContact(c, "");
+                            contactService.addContact(c, companyName);
                             count++;
                         }
                     }
@@ -658,6 +672,64 @@ public class ContactPanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    /** Parse 1 dòng CSV, hỗ trợ trường trong ngoặc kép chứa dấu phẩy. */
+    private List<String> parseCsvLine(String line) {
+        List<String> fields = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                inQuotes = !inQuotes;
+            } else if (ch == ',' && !inQuotes) {
+                fields.add(sb.toString().trim());
+                sb.setLength(0);
+            } else {
+                sb.append(ch);
+            }
+        }
+        fields.add(sb.toString().trim());
+        return fields;
+    }
+
+    /** Đọc giá trị cột an toàn, trả "" nếu vượt index. */
+    private String csvVal(List<String> parts, int idx) {
+        if (idx >= parts.size()) return "";
+        String v = parts.get(idx).trim();
+        // Bỏ ngoặc kép bọc ngoài nếu có
+        if (v.startsWith("\"") && v.endsWith("\"")) v = v.substring(1, v.length() - 1);
+        return v;
+    }
+
+    /** Chuyển dd/MM/yyyy | yyyy-MM-dd sang yyyy-MM-dd (PostgreSQL format). */
+    private String convertCsvDate(String date) {
+        if (date == null || date.isBlank()) return "";
+        date = date.trim();
+        // Đã đúng format yyyy-MM-dd
+        if (date.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) return date;
+        // dd/MM/yyyy
+        if (date.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            String[] p = date.split("/");
+            return p[2] + "-" + pad2(p[1]) + "-" + pad2(p[0]);
+        }
+        return date;
+    }
+
+    private String pad2(String s) { return s.length() == 1 ? "0" + s : s; }
+
+    /** Map tên nhóm (FAVORITES, FAMILY, WORK, FRIENDS, OTHER) → group_id (1-5). */
+    private int mapGroupId(String g) {
+        if (g == null || g.isBlank()) return 5;
+        g = g.trim().toUpperCase();
+        switch (g) {
+            case "FAVORITES": case "1": case "YÊU THÍCH":   return 1;
+            case "FAMILY":    case "2": case "GIA ĐÌNH":    return 2;
+            case "WORK":      case "3": case "CÔNG VIỆC":   return 3;
+            case "FRIENDS":   case "4": case "BẠN BÈ":      return 4;
+            default:                                         return 5;
+        }
     }
 
     // ── CONTEXT MENU ────────────────────────────────────────

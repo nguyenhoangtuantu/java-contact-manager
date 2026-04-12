@@ -126,11 +126,23 @@ public class ContactDialog extends JDialog {
 
         JButton timeBtn = new JButton("⏰ Thêm ngày giờ");
         timeBtn.setFont(UIConstants.FONT_SMALL_BOLD);
-        timeBtn.setForeground(UIConstants.TEXT_PRIMARY);
-        timeBtn.setBackground(UIConstants.BG_CARD);
+        timeBtn.setForeground(UIConstants.ACCENT);
+        timeBtn.setBackground(new Color(239, 246, 255));
         timeBtn.setFocusPainted(false);
-        timeBtn.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        timeBtn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UIConstants.ACCENT, 1, true),
+                BorderFactory.createEmptyBorder(3, 10, 3, 10)));
         timeBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        timeBtn.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) {
+                timeBtn.setBackground(UIConstants.ACCENT);
+                timeBtn.setForeground(Color.WHITE);
+            }
+            @Override public void mouseExited(MouseEvent e) {
+                timeBtn.setBackground(new Color(239, 246, 255));
+                timeBtn.setForeground(UIConstants.ACCENT);
+            }
+        });
         timeBtn.addActionListener(e -> {
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -165,10 +177,10 @@ public class ContactDialog extends JDialog {
         buttonPanel.setAlignmentX(LEFT_ALIGNMENT);
         buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
 
-        JButton cancelBtn = createButton("Hủy", UIConstants.BG_CARD);
+        JButton cancelBtn = createStyledButton("Hủy", new Color(100, 116, 139), new Color(71, 85, 105));
         cancelBtn.addActionListener(e -> dispose());
 
-        JButton saveBtn = createButton("Lưu", UIConstants.ACCENT);
+        JButton saveBtn = createStyledButton("Lưu", UIConstants.ACCENT, UIConstants.ACCENT_HOVER);
         saveBtn.addActionListener(e -> saveContact());
 
         buttonPanel.add(cancelBtn);
@@ -403,28 +415,45 @@ public class ContactDialog extends JDialog {
         return s.length() == 1 ? "0" + s : s;
     }
 
-    private JButton createButton(String text, Color bg) {
-        JButton btn = new JButton(text);
+    /** Tạo nút bo tròn với màu nền gradient, chữ trắng, hover tối hơn. */
+    private JButton createStyledButton(String text, Color base, Color hover) {
+        JButton btn = new JButton(text) {
+            private boolean hovered = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hovered = true;  repaint(); }
+                    @Override public void mouseExited(MouseEvent e)  { hovered = false; repaint(); }
+                });
+            }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(hovered ? hover : base);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                g2.drawString(getText(), x, y);
+                g2.dispose();
+            }
+        };
         btn.setFont(UIConstants.FONT_BODY_BOLD);
-
         btn.setForeground(Color.WHITE);
-        btn.setBackground(bg);
+        btn.setBackground(base);
+        btn.setOpaque(false);
+        btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
         btn.setBorderPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setPreferredSize(new Dimension(120, 38));
-        btn.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                btn.setBackground(bg.brighter());
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                btn.setBackground(bg);
-            }
-        });
         return btn;
+    }
+
+    /** Giữ lại cho tương thích — nút đơn giản với hover brighter. */
+    private JButton createButton(String text, Color bg) {
+        return createStyledButton(text, bg, bg.darker());
     }
 
     // --- AVATAR HELPERS ---
@@ -439,8 +468,8 @@ public class ContactDialog extends JDialog {
         avatarLabel.setMaximumSize(new Dimension(80, 80));
         updateAvatarDisplay();
 
-        JButton chooseBtn = createButton("Chọn ảnh", UIConstants.BG_CARD);
-        chooseBtn.setPreferredSize(new Dimension(100, 36));
+        JButton chooseBtn = createStyledButton("Chọn ảnh", new Color(16, 185, 129), new Color(5, 150, 105));
+        chooseBtn.setPreferredSize(new Dimension(110, 36));
         chooseBtn.addActionListener(e -> chooseAvatar());
 
         panel.add(avatarLabel);

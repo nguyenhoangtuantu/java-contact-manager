@@ -66,6 +66,29 @@ public class LoginFrame extends JFrame {
     private JPasswordField rConfirmField;
     private JButton        rRegisterBtn;
     private JLabel         rStatusLabel;
+    private JComboBox<String> rQuestionCombo;
+    private JTextField     rAnswerField;
+
+    // ── Widgets Forgot Password ──────────────────────────────────────────────
+    private JTextField     fEmailField;
+    private JButton        fCheckBtn;
+    private JLabel         fQuestionLabel;
+    private JTextField     fAnswerField;
+    private JPasswordField fNewPassField;
+    private JPasswordField fConfirmPassField;
+    private JButton        fResetBtn;
+    private JLabel         fStatusLabel;
+    private JPanel         fStep2Panel;
+    private String         fCurrentEmail;
+
+    // ── Câu hỏi bảo mật ──────────────────────────────────────────────────────
+    private static final String[] SECURITY_QUESTIONS = {
+        "Tên trường tiểu học của bạn là gì?",
+        "Tên thú cưng đầu tiên của bạn là gì?",
+        "Món ăn yêu thích của bạn là gì?",
+        "Tên người bạn thân nhất thời thơ ấu?",
+        "Thành phố nơi bạn sinh ra?"
+    };
 
     // ── Layout ────────────────────────────────────────────────────────────────
     private CardLayout    cardLayout;
@@ -87,10 +110,11 @@ public class LoginFrame extends JFrame {
 
         cardLayout = new CardLayout();
         cardRoot   = new JPanel(cardLayout);
-        cardRoot.setPreferredSize(new Dimension(920, 580));
+        cardRoot.setPreferredSize(new Dimension(960, 720));
 
-        cardRoot.add(buildLoginScreen(),    "LOGIN");
-        cardRoot.add(buildRegisterScreen(), "REGISTER");
+        cardRoot.add(buildLoginScreen(),          "LOGIN");
+        cardRoot.add(buildRegisterScreen(),       "REGISTER");
+        cardRoot.add(buildForgotPasswordScreen(), "FORGOT");
         cardLayout.show(cardRoot, "LOGIN");
 
         add(cardRoot);
@@ -155,6 +179,11 @@ public class LoginFrame extends JFrame {
         rowForgot.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
         JLabel forgotLbl = lbl("Quên mật khẩu?", 13, Font.BOLD, L_ACCENT);
         forgotLbl.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        forgotLbl.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) { switchTo("FORGOT"); }
+            @Override public void mouseEntered(MouseEvent e) { forgotLbl.setForeground(L_ACCENT.brighter()); }
+            @Override public void mouseExited(MouseEvent e)  { forgotLbl.setForeground(L_ACCENT); }
+        });
         rowForgot.add(forgotLbl, BorderLayout.EAST);
         card.add(rowForgot);
         card.add(Box.createVerticalStrut(20));
@@ -246,7 +275,7 @@ public class LoginFrame extends JFrame {
         bg.setLayout(new GridBagLayout());
 
         JPanel card = glassCard(R_CARD, SHADOW_D, true);
-        card.setPreferredSize(new Dimension(355, 510));
+        card.setPreferredSize(new Dimension(375, 660));
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(34, 40, 30, 40));
 
@@ -284,8 +313,28 @@ public class LoginFrame extends JFrame {
         card.add(Box.createVerticalStrut(5));
         rConfirmField = new JPasswordField();
         styleFieldDark(rConfirmField);
-        rConfirmField.addActionListener(e -> doRegister());
         card.add(rConfirmField);
+        card.add(Box.createVerticalStrut(12));
+
+        // Câu hỏi bảo mật
+        card.add(lbl("Câu hỏi bảo mật", 13, Font.BOLD, TXT_WHITE_MUT));
+        card.add(Box.createVerticalStrut(5));
+        rQuestionCombo = new JComboBox<>(SECURITY_QUESTIONS);
+        rQuestionCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        rQuestionCombo.setBackground(INP_BG_DARK);
+        rQuestionCombo.setForeground(TXT_WHITE);
+        rQuestionCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        rQuestionCombo.setAlignmentX(LEFT_ALIGNMENT);
+        card.add(rQuestionCombo);
+        card.add(Box.createVerticalStrut(12));
+
+        // Câu trả lời bảo mật
+        card.add(lbl("Câu trả lời", 13, Font.BOLD, TXT_WHITE_MUT));
+        card.add(Box.createVerticalStrut(5));
+        rAnswerField = new JTextField();
+        styleFieldDark(rAnswerField);
+        rAnswerField.addActionListener(e -> doRegister());
+        card.add(rAnswerField);
         card.add(Box.createVerticalStrut(20));
 
         // Nút Đăng ký — gradient
@@ -354,8 +403,10 @@ public class LoginFrame extends JFrame {
         String email   = rEmailField.getText().trim();
         String pass    = new String(rPassField.getPassword());
         String confirm = new String(rConfirmField.getPassword());
+        String securityQuestion = (String) rQuestionCombo.getSelectedItem();
+        String securityAnswer   = rAnswerField.getText().trim();
 
-        if (name.isEmpty() || email.isEmpty() || pass.isEmpty() || confirm.isEmpty()) {
+        if (name.isEmpty() || email.isEmpty() || pass.isEmpty() || confirm.isEmpty() || securityAnswer.isEmpty()) {
             setRStatus("⚠  Vui lòng điền đầy đủ thông tin.", new Color(255, 170, 50));
             return;
         }
@@ -379,7 +430,7 @@ public class LoginFrame extends JFrame {
 
         new SwingWorker<Boolean, Void>() {
             @Override protected Boolean doInBackground() throws Exception {
-                return SupabaseService.getInstance().registerUser(email, pass, name);
+                return SupabaseService.getInstance().registerUser(email, pass, name, securityQuestion, securityAnswer);
             }
             @Override protected void done() {
                 try {
@@ -406,7 +457,255 @@ public class LoginFrame extends JFrame {
 
     private void switchTo(String card) {
         cardLayout.show(cardRoot, card);
-        setTitle(card.equals("LOGIN") ? UIConstants.ICON_USER + " Đăng nhập" : UIConstants.ICON_APP + " Đăng ký");
+        switch (card) {
+            case "LOGIN":    setTitle(UIConstants.ICON_USER + " Đăng nhập"); break;
+            case "REGISTER": setTitle(UIConstants.ICON_APP  + " Đăng ký"); break;
+            case "FORGOT":   setTitle("Quên mật khẩu"); resetForgotForm(); break;
+        }
+    }
+
+    /** Reset form quên mật khẩu về trạng thái ban đầu. */
+    private void resetForgotForm() {
+        if (fEmailField != null) { fEmailField.setText(""); fEmailField.setEditable(true); }
+        if (fCheckBtn != null)   { fCheckBtn.setVisible(true); fCheckBtn.setEnabled(true); fCheckBtn.setText("Kiểm tra email"); }
+        if (fStep2Panel != null) fStep2Panel.setVisible(false);
+        if (fAnswerField != null) fAnswerField.setText("");
+        if (fNewPassField != null) fNewPassField.setText("");
+        if (fConfirmPassField != null) fConfirmPassField.setText("");
+        if (fStatusLabel != null) { fStatusLabel.setText(" "); fStatusLabel.setForeground(TXT_MUTED); }
+        fCurrentEmail = null;
+    }
+
+    // =========================================================================
+    //  SCREEN 3: FORGOT PASSWORD  [Branding LEFT | Form RIGHT]
+    // =========================================================================
+    private JPanel buildForgotPasswordScreen() {
+        JPanel screen = new JPanel(new GridLayout(1, 2, 0, 0));
+        screen.add(buildForgotBrandPanel());
+        screen.add(buildForgotFormPanel());
+        return screen;
+    }
+
+    // ── Forgot: panel trái — ảnh banner + overlay xanh ──────────────────────
+    private JPanel buildForgotBrandPanel() {
+        return new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                drawBannerImage(g2, getWidth(), getHeight());
+                g2.setColor(new Color(10, 25, 60, 180));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                blob(g2, -20, getHeight() / 2, 200, new Color(60, 160, 255), 40);
+                blob(g2, getWidth() - 40, getHeight() / 3, 170, new Color(255, 140, 60), 35);
+                drawBrandBottom(g2, getWidth(), getHeight(), "Khôi phục mật khẩu",
+                    "Trả lời câu hỏi bảo mật để đặt lại");
+                g2.dispose();
+            }
+        };
+    }
+
+    // ── Forgot: panel phải — light form ─────────────────────────────────────
+    private JPanel buildForgotFormPanel() {
+        JPanel bg = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(L_BG);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                blob(g2, getWidth() - 30, -40, 200, new Color(255, 160, 60), 40);
+                blob(g2, -40, getHeight() - 50, 180, new Color(60, 130, 255), 35);
+                g2.dispose();
+            }
+        };
+        bg.setLayout(new GridBagLayout());
+
+        JPanel card = glassCard(L_CARD, SHADOW_L, false);
+        card.setPreferredSize(new Dimension(370, 560));
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(BorderFactory.createEmptyBorder(30, 38, 26, 38));
+
+        card.add(lbl("Khôi phục mật khẩu", 23, Font.BOLD, TXT_TITLE));
+        card.add(Box.createVerticalStrut(3));
+        card.add(lbl("Nhập email để lấy câu hỏi bảo mật", 13, Font.PLAIN, TXT_BODY));
+        card.add(Box.createVerticalStrut(20));
+
+        // Email
+        card.add(lbl("Email đã đăng ký", 13, Font.BOLD, TXT_BODY));
+        card.add(Box.createVerticalStrut(5));
+        fEmailField = new JTextField();
+        styleFieldLight(fEmailField);
+        card.add(fEmailField);
+        card.add(Box.createVerticalStrut(10));
+
+        // Nút Kiểm tra email
+        fCheckBtn = darkBtn("Kiểm tra email", L_BTN, L_BTN_HOVER, Color.WHITE);
+        fCheckBtn.addActionListener(e -> doCheckEmail());
+        card.add(fCheckBtn);
+        card.add(Box.createVerticalStrut(6));
+
+        // ── Step 2: hiện sau khi kiểm tra email thành công ──
+        fStep2Panel = new JPanel();
+        fStep2Panel.setOpaque(false);
+        fStep2Panel.setLayout(new BoxLayout(fStep2Panel, BoxLayout.Y_AXIS));
+        fStep2Panel.setAlignmentX(LEFT_ALIGNMENT);
+
+        fQuestionLabel = lbl(" ", 13, Font.BOLD, new Color(200, 120, 30));
+        fStep2Panel.add(fQuestionLabel);
+        fStep2Panel.add(Box.createVerticalStrut(8));
+
+        fStep2Panel.add(lbl("Câu trả lời", 13, Font.BOLD, TXT_BODY));
+        fStep2Panel.add(Box.createVerticalStrut(4));
+        fAnswerField = new JTextField();
+        styleFieldLight(fAnswerField);
+        fStep2Panel.add(fAnswerField);
+        fStep2Panel.add(Box.createVerticalStrut(8));
+
+        fStep2Panel.add(lbl("Mật khẩu mới", 13, Font.BOLD, TXT_BODY));
+        fStep2Panel.add(Box.createVerticalStrut(4));
+        fNewPassField = new JPasswordField();
+        styleFieldLight(fNewPassField);
+        fStep2Panel.add(fNewPassField);
+        fStep2Panel.add(Box.createVerticalStrut(8));
+
+        fStep2Panel.add(lbl("Xác nhận mật khẩu mới", 13, Font.BOLD, TXT_BODY));
+        fStep2Panel.add(Box.createVerticalStrut(4));
+        fConfirmPassField = new JPasswordField();
+        styleFieldLight(fConfirmPassField);
+        fConfirmPassField.addActionListener(e -> doResetPassword());
+        fStep2Panel.add(fConfirmPassField);
+        fStep2Panel.add(Box.createVerticalStrut(12));
+
+        fResetBtn = darkBtn("Đặt lại mật khẩu", new Color(200, 100, 20), new Color(230, 120, 30), Color.WHITE);
+        fResetBtn.addActionListener(e -> doResetPassword());
+        fStep2Panel.add(fResetBtn);
+
+        fStep2Panel.setVisible(false);
+        card.add(fStep2Panel);
+
+        card.add(Box.createVerticalStrut(6));
+        fStatusLabel = statusLbl();
+        card.add(fStatusLabel);
+        card.add(Box.createVerticalGlue());
+
+        // Quay về đăng nhập
+        card.add(switchRow("Nhớ mật khẩu rồi?", "Đăng nhập", () -> switchTo("LOGIN"), false));
+
+        bg.add(card, new GridBagConstraints());
+        return bg;
+    }
+
+    // ── ACTIONS: Quên mật khẩu ──────────────────────────────────────────────
+
+    /** Bước 1: Kiểm tra email và lấy câu hỏi bảo mật. */
+    private void doCheckEmail() {
+        String email = fEmailField.getText().trim();
+        if (email.isEmpty()) {
+            fStatusLabel.setText("⚠  Vui lòng nhập email.");
+            fStatusLabel.setForeground(new Color(220, 120, 30));
+            return;
+        }
+        if (!isValidEmail(email)) {
+            fStatusLabel.setText("⚠  Địa chỉ email không hợp lệ.");
+            fStatusLabel.setForeground(new Color(220, 120, 30));
+            return;
+        }
+
+        fCheckBtn.setEnabled(false);
+        fCheckBtn.setText("Đang kiểm tra...");
+        fStatusLabel.setText("⏳  Đang tìm tài khoản...");
+        fStatusLabel.setForeground(TXT_MUTED);
+
+        new SwingWorker<String, Void>() {
+            @Override protected String doInBackground() throws Exception {
+                return SupabaseService.getInstance().getSecurityQuestion(email);
+            }
+            @Override protected void done() {
+                try {
+                    String question = get();
+                    if (question == null || question.isBlank()) {
+                        fStatusLabel.setText("✗  Email không tồn tại hoặc chưa có câu hỏi bảo mật.");
+                        fStatusLabel.setForeground(new Color(220, 60, 60));
+                        fCheckBtn.setEnabled(true);
+                        fCheckBtn.setText("Kiểm tra email");
+                        return;
+                    }
+                    fCurrentEmail = email;
+                    fQuestionLabel.setText("❓ " + question);
+                    fCheckBtn.setVisible(false);
+                    fEmailField.setEditable(false);
+                    fStep2Panel.setVisible(true);
+                    fStep2Panel.getParent().revalidate();
+                    fStep2Panel.getParent().repaint();
+                    fStatusLabel.setText("✓  Hãy trả lời câu hỏi bảo mật bên dưới.");
+                    fStatusLabel.setForeground(new Color(50, 180, 100));
+                } catch (Exception ex) {
+                    String m = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                    fStatusLabel.setText("✗  " + m);
+                    fStatusLabel.setForeground(new Color(220, 60, 60));
+                    fCheckBtn.setEnabled(true);
+                    fCheckBtn.setText("Kiểm tra email");
+                }
+            }
+        }.execute();
+    }
+
+    /** Bước 2: Xác minh câu trả lời và đặt lại mật khẩu. */
+    private void doResetPassword() {
+        String answer  = fAnswerField.getText().trim();
+        String newPass = new String(fNewPassField.getPassword());
+        String confirm = new String(fConfirmPassField.getPassword());
+
+        if (answer.isEmpty()) {
+            fStatusLabel.setText("⚠  Vui lòng nhập câu trả lời.");
+            fStatusLabel.setForeground(new Color(220, 120, 30));
+            return;
+        }
+        if (newPass.isEmpty() || confirm.isEmpty()) {
+            fStatusLabel.setText("⚠  Vui lòng nhập mật khẩu mới.");
+            fStatusLabel.setForeground(new Color(220, 120, 30));
+            return;
+        }
+        if (!newPass.equals(confirm)) {
+            fStatusLabel.setText("✗  Mật khẩu xác nhận không khớp!");
+            fStatusLabel.setForeground(new Color(220, 60, 60));
+            fConfirmPassField.setText("");
+            return;
+        }
+        if (newPass.length() < 6) {
+            fStatusLabel.setText("✗  Mật khẩu phải từ 6 ký tự trở lên.");
+            fStatusLabel.setForeground(new Color(220, 60, 60));
+            return;
+        }
+
+        fResetBtn.setEnabled(false);
+        fResetBtn.setText("Đang xử lý...");
+        fStatusLabel.setText("⏳  Đang đặt lại mật khẩu...");
+        fStatusLabel.setForeground(TXT_MUTED);
+
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() throws Exception {
+                return SupabaseService.getInstance().resetPassword(fCurrentEmail, answer, newPass);
+            }
+            @Override protected void done() {
+                try {
+                    if (get()) {
+                        fStatusLabel.setText("✓  Mật khẩu đã được đặt lại thành công!");
+                        fStatusLabel.setForeground(new Color(50, 180, 100));
+                        Timer t = new Timer(1500, e -> switchTo("LOGIN"));
+                        t.setRepeats(false); t.start();
+                    }
+                } catch (Exception ex) {
+                    String m = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                    fStatusLabel.setText("✗  " + m);
+                    fStatusLabel.setForeground(new Color(220, 60, 60));
+                    fAnswerField.setText("");
+                } finally {
+                    fResetBtn.setEnabled(true);
+                    fResetBtn.setText("Đặt lại mật khẩu");
+                }
+            }
+        }.execute();
     }
 
     // =========================================================================

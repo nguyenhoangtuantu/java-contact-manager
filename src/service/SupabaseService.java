@@ -80,10 +80,11 @@ public class SupabaseService {
      * Đăng ký: kiểm tra email chưa tồn tại, rồi tạo user mới.
      */
     public boolean registerUser(String email, String password) throws Exception {
-        return registerUser(email, password, null);
+        return registerUser(email, password, null, null, null);
     }
 
-    public boolean registerUser(String email, String password, String displayName) throws Exception {
+    public boolean registerUser(String email, String password, String displayName,
+                                String securityQuestion, String securityAnswer) throws Exception {
         // Kiểm tra email đã tồn tại chưa
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
         String checkUrl = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id";
@@ -102,6 +103,10 @@ public class SupabaseService {
         body.addProperty("password", sha256(password));
         if (displayName != null && !displayName.isBlank())
             body.addProperty("display_name", displayName);
+        if (securityQuestion != null && !securityQuestion.isBlank())
+            body.addProperty("security_question", securityQuestion);
+        if (securityAnswer != null && !securityAnswer.isBlank())
+            body.addProperty("security_answer", sha256(securityAnswer.trim().toLowerCase()));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(config.getRestUrl() + "users"))
@@ -120,6 +125,80 @@ public class SupabaseService {
 
         // Đăng nhập tự động sau khi đăng ký
         return loginUser(email, password);
+    }
+
+    // ==================== QUÊN MẬT KHẨU ====================
+
+    /**
+     * Lấy câu hỏi bảo mật của user theo email.
+     * @return câu hỏi bảo mật, hoặc null nếu email không tồn tại hoặc chưa thiết lập
+     */
+    public String getSecurityQuestion(String email) throws Exception {
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=security_question";
+
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new Exception("Lỗi kết nối cơ sở dữ liệu!");
+        }
+
+        JsonArray arr = JsonParser.parseString(response.body()).getAsJsonArray();
+        if (arr.isEmpty()) {
+            return null;
+        }
+
+        JsonObject user = arr.get(0).getAsJsonObject();
+        return getStr(user, "security_question");
+    }
+
+    /**
+     * Đặt lại mật khẩu bằng câu trả lời bảo mật.
+     * So sánh SHA-256 hash của câu trả lời (lowercase).
+     */
+    public boolean resetPassword(String email, String securityAnswer, String newPassword) throws Exception {
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,security_answer";
+
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new Exception("Lỗi kết nối cơ sở dữ liệu!");
+        }
+
+        JsonArray arr = JsonParser.parseString(response.body()).getAsJsonArray();
+        if (arr.isEmpty()) {
+            throw new Exception("Email không tồn tại trong hệ thống!");
+        }
+
+        JsonObject user = arr.get(0).getAsJsonObject();
+        String storedAnswerHash = getStr(user, "security_answer");
+        String inputAnswerHash  = sha256(securityAnswer.trim().toLowerCase());
+
+        if (storedAnswerHash == null || !MessageDigest.isEqual(
+                storedAnswerHash.getBytes(StandardCharsets.UTF_8),
+                inputAnswerHash.getBytes(StandardCharsets.UTF_8))) {
+            throw new Exception("Câu trả lời bảo mật không chính xác!");
+        }
+
+        // Cập nhật mật khẩu mới
+        String userId = user.get("id").getAsString();
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("password", sha256(newPassword));
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Cập nhật mật khẩu thất bại!");
+        }
+
+        return true;
     }
 
     // ==================== CONTACTS ====================
