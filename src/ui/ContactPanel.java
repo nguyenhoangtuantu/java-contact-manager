@@ -423,7 +423,20 @@ public class ContactPanel extends JPanel {
         loadContacts();
     }
 
+    /**
+     * Chỉ reset UI về chế độ bình thường (không load data).
+     * Dùng khi sẽ gọi filterByGroupId() ngay sau đó.
+     */
+    public void resetToNormalMode() {
+        this.isTrashMode = false;
+        addBtn.setVisible(true);
+        groupFilter.setVisible(true);
+        editBtn.setText("\u270E SỬA");
+        deleteBtn.setText("\u2716 XÓA");
+    }
+
     public void filterByGroupId(int groupId, String groupName) {
+        titleLabel.setText("Nhóm: " + groupName);
         new SwingWorker<List<Contact>, Void>() {
             @Override protected List<Contact> doInBackground() throws Exception {
                 return contactService.getContactsByGroupId(groupId);

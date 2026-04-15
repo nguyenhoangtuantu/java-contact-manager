@@ -4,8 +4,10 @@ import config.SupabaseConfig;
 import model.GroupInfo;
 import service.ContactService;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,12 +62,29 @@ public class MainFrame extends JFrame {
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
         nav.setOpaque(false);
 
-        // ── App title ──
-        JPanel titlePanel = new JPanel();
-        titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
+        // ── App title with logo ──
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
         titlePanel.setOpaque(false);
-        titlePanel.setBorder(BorderFactory.createEmptyBorder(20, 16, 16, 16));
+        titlePanel.setBorder(BorderFactory.createEmptyBorder(20, 8, 16, 8));
         titlePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
+
+        // Logo
+        JLabel logoLabel = new JLabel();
+        logoLabel.setPreferredSize(new Dimension(36, 36));
+        try {
+            BufferedImage logoImg = ImageIO.read(new java.io.File("resources/logo.jpg"));
+            if (logoImg != null) {
+                Image scaled = logoImg.getScaledInstance(36, 36, Image.SCALE_SMOOTH);
+                logoLabel.setIcon(new ImageIcon(scaled));
+            }
+        } catch (Exception ex) {
+            logoLabel.setText("📇");
+            logoLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
+        }
+
+        JPanel textPanel = new JPanel();
+        textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
+        textPanel.setOpaque(false);
 
         JLabel titleLbl = new JLabel("Quản lý Danh bạ");
         titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
@@ -75,9 +94,12 @@ public class MainFrame extends JFrame {
         subLbl.setFont(UIConstants.FONT_SMALL);
         subLbl.setForeground(UIConstants.TEXT_MUTED);
 
-        titlePanel.add(titleLbl);
-        titlePanel.add(Box.createVerticalStrut(2));
-        titlePanel.add(subLbl);
+        textPanel.add(titleLbl);
+        textPanel.add(Box.createVerticalStrut(2));
+        textPanel.add(subLbl);
+
+        titlePanel.add(logoLabel);
+        titlePanel.add(textPanel);
         nav.add(titlePanel);
 
         // ── CHỨC NĂNG section ──
@@ -278,7 +300,7 @@ public class MainFrame extends JFrame {
         row.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 if (SwingUtilities.isLeftMouseButton(e)) {
-                    contactPanel.setTrashMode(false);
+                    contactPanel.resetToNormalMode();
                     contactPanel.filterByGroupId(group.getId(), group.getDisplayName());
                 }
             }
