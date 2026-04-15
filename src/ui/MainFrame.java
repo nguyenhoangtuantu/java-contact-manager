@@ -92,13 +92,8 @@ public class MainFrame extends JFrame {
         recentBtn.addActionListener(e -> { activateNav(recentBtn); contactPanel.filterByRecent(); });
         nav.add(recentBtn);
 
-        JButton dupBtn = navButton("\uD83D\uDD00", "Hợp nhất trùng lặp");  // 🔀
-        dupBtn.addActionListener(e -> {
-            DuplicateDialog dlg = new DuplicateDialog(this);
-            dlg.setVisible(true);
-            if (dlg.isChanged()) { contactPanel.loadContacts(); refreshGroupList(); }
-        });
-        nav.add(dupBtn);
+
+
 
         JButton cleanBtn = navButton("\uD83E\uDDF9", "Dọn dẹp định kỳ");  // 🧹
         cleanBtn.addActionListener(e -> {

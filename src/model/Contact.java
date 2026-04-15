@@ -144,22 +144,8 @@ public class Contact {
         return (int) ((getFilledFieldCount() / (double) getTotalFields()) * 100);
     }
 
-    /**
-     * Kiểm tra có phải liên hệ trùng lặp tiềm năng không.
-     */
-    public boolean isPotentialDuplicate(Contact other) {
-        if (other == null) return false;
-        boolean sameName = name != null && other.name != null
-                && name.trim().equalsIgnoreCase(other.name.trim());
-        boolean samePhone = phone != null && other.phone != null
-                && !phone.isBlank() && !other.phone.isBlank()
-                && normalizePhone(phone).equals(normalizePhone(other.phone));
-        return sameName || samePhone;
-    }
 
-    private String normalizePhone(String p) {
-        return p.replaceAll("[\\s\\-\\.\\(\\)]", "");
-    }
+
 
     @Override
     public boolean equals(Object o) {

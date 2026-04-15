@@ -158,68 +158,39 @@ public class ContactService {
         return counts;
     }
 
-    // ==================== HỢP NHẤT TRÙNG LẶP ====================
+    // ==================== KIỂM TRA TRÙNG SĐT ====================
 
     /**
-     * Tìm các cặp liên hệ trùng lặp tiềm năng.
+     * Chuẩn hóa số điện thoại: bỏ khoảng trắng, dấu gạch, dấu ngoặc, dấu chấm.
      */
-    public List<List<Contact>> findDuplicates() throws Exception {
-        List<Contact> all = getAllContacts();
-        List<List<Contact>> duplicateGroups = new ArrayList<>();
-        Set<String> processed = new HashSet<>();
-
-        for (int i = 0; i < all.size(); i++) {
-            Contact a = all.get(i);
-            if (processed.contains(a.getId())) continue;
-
-            List<Contact> group = new ArrayList<>();
-            group.add(a);
-
-            for (int j = i + 1; j < all.size(); j++) {
-                Contact b = all.get(j);
-                if (processed.contains(b.getId())) continue;
-                if (a.isPotentialDuplicate(b)) {
-                    group.add(b);
-                    processed.add(b.getId());
-                }
-            }
-
-            if (group.size() > 1) {
-                duplicateGroups.add(group);
-                processed.add(a.getId());
-            }
-        }
-        return duplicateGroups;
+    private String normalizePhone(String phone) {
+        if (phone == null) return "";
+        return phone.replaceAll("[\\s\\-\\.\\(\\)]", "");
     }
 
     /**
-     * Hợp nhất danh sách liên hệ trùng lặp thành một.
+     * Kiểm tra số điện thoại đã tồn tại chưa.
+     * @param phone SĐT cần kiểm tra
+     * @param excludeContactId ID liên hệ cần loại trừ (khi sửa liên hệ, loại trừ chính nó). Truyền null nếu thêm mới.
+     * @return Contact trùng SĐT nếu có, null nếu không trùng.
      */
-    public Contact mergeContacts(List<Contact> duplicates) throws Exception {
-        if (duplicates == null || duplicates.isEmpty()) return null;
+    public Contact findDuplicateByPhone(String phone, String excludeContactId) throws Exception {
+        if (phone == null || phone.isBlank()) return null;
 
-        Contact primary = duplicates.get(0);
+        String normalizedInput = normalizePhone(phone);
+        if (normalizedInput.isEmpty()) return null;
 
-        for (int i = 1; i < duplicates.size(); i++) {
-            Contact other = duplicates.get(i);
-            if (isBlank(primary.getPhone()) && !isBlank(other.getPhone()))
-                primary.setPhone(other.getPhone());
-            if (isBlank(primary.getEmail()) && !isBlank(other.getEmail()))
-                primary.setEmail(other.getEmail());
-            if (isBlank(primary.getAddress()) && !isBlank(other.getAddress()))
-                primary.setAddress(other.getAddress());
-            if (isBlank(primary.getBirthday()) && !isBlank(other.getBirthday()))
-                primary.setBirthday(other.getBirthday());
-            if (isBlank(primary.getCompanyId()) && !isBlank(other.getCompanyId()))
-                primary.setCompanyId(other.getCompanyId());
-            if (isBlank(primary.getNotes()) && !isBlank(other.getNotes()))
-                primary.setNotes(other.getNotes());
-
-            // Đã gộp thông tin → xóa vĩnh viễn (không cần giữ trong thùng rác)
-            supabase.permanentlyDeleteContact(other.getId());
+        List<Contact> all = getAllContacts();
+        for (Contact c : all) {
+            if (excludeContactId != null && excludeContactId.equals(c.getId())) continue;
+            if (c.getPhone() != null && !c.getPhone().isBlank()) {
+                String normalizedExisting = normalizePhone(c.getPhone());
+                if (normalizedInput.equals(normalizedExisting)) {
+                    return c;
+                }
+            }
         }
-
-        return supabase.updateContact(primary);
+        return null;
     }
 
     // ==================== DỌN DẸP ĐỊNH KỲ ====================

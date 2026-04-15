@@ -346,8 +346,38 @@ public class ContactDialog extends JDialog {
             return;
         }
 
+        String phone = getFieldValue(phoneField, "VD: 0901234567");
+
+        // Kiểm tra trùng số điện thoại
+        if (!phone.isEmpty()) {
+            try {
+                // Nếu đang sửa (contact đã có ID trong DB) → loại trừ chính nó
+                String excludeId = (contact.getCreatedAt() != null) ? contact.getId() : null;
+                Contact duplicate = ContactService.getInstance().findDuplicateByPhone(phone, excludeId);
+                if (duplicate != null) {
+                    int choice = JOptionPane.showConfirmDialog(this,
+                            "⚠ Số điện thoại \"" + phone + "\" đã tồn tại!\n\n"
+                            + "Liên hệ hiện có: " + duplicate.getName() + " (" + duplicate.getPhone() + ")\n\n"
+                            + "Mỗi liên hệ nên có số điện thoại riêng.\n"
+                            + "Bạn có muốn quay lại sửa không?",
+                            "Trùng số điện thoại",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.WARNING_MESSAGE);
+                    if (choice == JOptionPane.YES_OPTION) {
+                        phoneField.requestFocus();
+                        phoneField.selectAll();
+                        return;
+                    }
+                    // Nếu chọn "Không" → cho phép lưu dù trùng
+                }
+            } catch (Exception ex) {
+                // Nếu lỗi kết nối, bỏ qua kiểm tra trùng, cho phép lưu
+                System.err.println("Không thể kiểm tra trùng SĐT: " + ex.getMessage());
+            }
+        }
+
         contact.setName(name);
-        contact.setPhone(getFieldValue(phoneField, "VD: 0901234567"));
+        contact.setPhone(phone);
         contact.setEmail(getFieldValue(emailField, "VD: example@gmail.com"));
         contact.setAddress(getFieldValue(addressField, "Nhập địa chỉ..."));
 

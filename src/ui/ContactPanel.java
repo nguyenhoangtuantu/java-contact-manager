@@ -621,9 +621,10 @@ public class ContactPanel extends JPanel {
     }
 
     private void importCsvFile(File file) {
-        new SwingWorker<Integer, Void>() {
-            @Override protected Integer doInBackground() throws Exception {
+        new SwingWorker<int[], Void>() {
+            @Override protected int[] doInBackground() throws Exception {
                 int count = 0;
+                int skipped = 0;
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(
                         new FileInputStream(file), "UTF-8"))) {
                     String line;
@@ -652,20 +653,34 @@ public class ContactPanel extends JPanel {
                         String companyName = csvVal(parts, 7);
 
                         if (!c.getName().isEmpty()) {
+                            // Kiểm tra trùng SĐT trước khi thêm
+                            if (!c.getPhone().isEmpty()) {
+                                Contact dup = contactService.findDuplicateByPhone(c.getPhone(), null);
+                                if (dup != null) {
+                                    skipped++;
+                                    continue; // Bỏ qua liên hệ trùng SĐT
+                                }
+                            }
                             contactService.addContact(c, companyName);
                             count++;
                         }
                     }
                 }
-                return count;
+                return new int[]{count, skipped};
             }
             @Override protected void done() {
                 try {
-                    int n = get();
+                    int[] result = get();
+                    int n = result[0];
+                    int s = result[1];
                     loadContacts();
                     if (onRefresh != null) onRefresh.run();
+                    String msg = "Đã nhập " + n + " liên hệ thành công!";
+                    if (s > 0) {
+                        msg += "\n⚠ Bỏ qua " + s + " liên hệ do trùng số điện thoại.";
+                    }
                     JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Đã nhập " + n + " liên hệ thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                            msg, "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     JOptionPane.showMessageDialog(ContactPanel.this,
                             "Lỗi nhập file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);

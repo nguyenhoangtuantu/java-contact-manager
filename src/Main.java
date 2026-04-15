@@ -12,9 +12,9 @@ public class Main {
             FlatDarkLaf.setup();
             UIManager.put("Button.arc", 8);
             UIManager.put("Component.arc", 8);
-            UIManager.put("TextComponent.arc", 6);
-            UIManager.put("ScrollBar.thumbArc", 999);
-            UIManager.put("ScrollBar.thumbInsets", new java.awt.Insets(2, 2, 2, 2));
+            UIManager.put("TextComponent.Arc", 999);
+            UIManager.put("ScrollBar.thumbIarc", 6);
+            UIManager.put("ScrollBar.thumbnsets", new java.awt.Insets(2, 2, 2, 2));
         } catch (Exception e) {
             System.err.println("Không thể thiết lập FlatLaf: " + e.getMessage());
             try {
