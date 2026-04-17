@@ -8,7 +8,7 @@ echo "🔨 Đang biên dịch ứng dụng Quản lý Danh bạ..."
 mkdir -p out
 
 # Classpath
-CP="lib/flatlaf-3.4.1.jar:lib/gson-2.10.1.jar"
+CP="lib/flatlaf-3.4.1.jar:lib/gson-2.10.1.jar:lib/core-3.5.3.jar:lib/javase-3.5.3.jar"
 
 # Compile tất cả file Java
 javac -cp "$CP" -d out -sourcepath src \

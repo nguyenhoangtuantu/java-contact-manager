@@ -25,7 +25,7 @@ public class CleanupDialog extends JDialog {
     private JPanel noPhonePanel;
 
     public CleanupDialog(Frame parent) {
-        super(parent, "🧹 Dọn dẹp danh bạ", true);
+        super(parent, "Dọn dẹp danh bạ", true);
         this.contactService = ContactService.getInstance();
         setSize(700, 550);
         setLocationRelativeTo(parent);
@@ -43,7 +43,7 @@ public class CleanupDialog extends JDialog {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
 
-        JLabel title = new JLabel("🧹 Dọn dẹp danh bạ định kỳ");
+        JLabel title = new JLabel("Dọn dẹp danh bạ định kỳ");
         title.setFont(UIConstants.FONT_SUBTITLE);
         title.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -71,9 +71,9 @@ public class CleanupDialog extends JDialog {
         stalePanel = createTabPanel();
         noPhonePanel = createTabPanel();
 
-        tabbedPane.addTab("✎ Thiếu thông tin", incompletePanel);
-        tabbedPane.addTab("⏰ Lâu không cập nhật", stalePanel);
-        tabbedPane.addTab("📱 Không có SĐT", noPhonePanel);
+        tabbedPane.addTab("Thiếu thông tin", incompletePanel);
+        tabbedPane.addTab("Lâu không cập nhật", stalePanel);
+        tabbedPane.addTab("Không có SĐT", noPhonePanel);
 
         mainPanel.add(tabbedPane, BorderLayout.CENTER);
 
@@ -82,7 +82,7 @@ public class CleanupDialog extends JDialog {
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
 
-        JButton refreshBtn = createButton("🔍 Quét lại", UIConstants.ACCENT);
+        JButton refreshBtn = createButton("Quét lại", UIConstants.ACCENT);
         refreshBtn.addActionListener(e -> loadAllTabs());
 
         JButton closeBtn = createButton("Đóng", UIConstants.BG_CARD);
@@ -181,7 +181,7 @@ public class CleanupDialog extends JDialog {
         content.add(descLabel, BorderLayout.NORTH);
 
         if (contacts.isEmpty()) {
-            JLabel noData = new JLabel("✅ Không có liên hệ nào cần dọn dẹp!");
+            JLabel noData = new JLabel("Không có liên hệ nào cần dọn dẹp!");
             noData.setFont(UIConstants.FONT_BODY);
             noData.setForeground(UIConstants.SUCCESS);
             noData.setBorder(BorderFactory.createEmptyBorder(30, 0, 30, 0));
@@ -241,7 +241,7 @@ public class CleanupDialog extends JDialog {
                 }
             });
 
-            JButton deleteBtn = createButton("✖ Xóa đã chọn", UIConstants.DANGER);
+            JButton deleteBtn = createButton("Xóa đã chọn", UIConstants.DANGER);
             deleteBtn.addActionListener(e -> {
                 List<Contact> toDelete = new ArrayList<>();
                 for (int i = 0; i < model.getRowCount(); i++) {

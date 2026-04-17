@@ -7,6 +7,11 @@ import service.ContactService;
 
 import javax.swing.*;
 import javax.swing.table.*;
+import java.awt.datatransfer.*;
+import java.awt.dnd.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.dnd.*;
@@ -25,6 +30,10 @@ public class ContactPanel extends JPanel {
     private JTable              contactTable;
     private DefaultTableModel   tableModel;
     private JTextField          searchField;
+    // Lazy-load pagination
+    private final int pageSize = 50; // số bản ghi mỗi trang
+    private int currentPage = 1;
+    private JPanel paginationPanel;
     private JComboBox<String>   groupFilter;
     private JLabel              statusLabel;
     private JLabel              titleLabel;
@@ -122,6 +131,7 @@ public class ContactPanel extends JPanel {
         addBtn = buildBtn("+ Thêm liên hệ", UIConstants.ACCENT, Color.WHITE, true);
         addBtn.setPreferredSize(new Dimension(140, 32));
         addBtn.addActionListener(e -> showAddDialog());
+        // Nút Export CSV được thêm vào status bar, không cần ở đây
 
         right.add(searchField);
         right.add(searchBtn);
@@ -160,6 +170,10 @@ public class ContactPanel extends JPanel {
         contactTable.setShowVerticalLines(false);
         contactTable.setIntercellSpacing(new Dimension(0, 0));
         contactTable.setFillsViewportHeight(true);
+        // Enable drag-and-drop row reordering
+        contactTable.setDragEnabled(true);
+        contactTable.setDropMode(DropMode.INSERT_ROWS);
+        contactTable.setTransferHandler(new TableRowTransferHandler(contactTable));
 
         // Column widths
         contactTable.getColumnModel().getColumn(0).setMaxWidth(36);
@@ -230,91 +244,18 @@ public class ContactPanel extends JPanel {
         card.add(scroll, BorderLayout.CENTER);
 
         wrapper.add(card, BorderLayout.CENTER);
-        wrapper.add(buildCsvZone(), BorderLayout.SOUTH);
+        
+        JPanel bottomZone = new JPanel(new BorderLayout(0, 4));
+        bottomZone.setOpaque(false);
+        bottomZone.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+        
+        bottomZone.add(buildPaginationPanel(), BorderLayout.CENTER);
+        
+        wrapper.add(bottomZone, BorderLayout.SOUTH);
         return wrapper;
     }
 
-    // ── CSV DROP ZONE ──────────────────────────────────────
-    private JPanel buildCsvZone() {
-        JPanel zone = new JPanel();
-        zone.setLayout(new BoxLayout(zone, BoxLayout.Y_AXIS));
-        zone.setBackground(UIConstants.BG_SECONDARY);
-        zone.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(209, 213, 219), 1, true),
-                BorderFactory.createEmptyBorder(24, 20, 24, 20)));
 
-        // Upload icon
-        JLabel iconLbl = new JLabel("↑") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(UIConstants.BG_HOVER);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                super.paintComponent(g);
-                g2.dispose();
-            }
-        };
-        iconLbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        iconLbl.setForeground(UIConstants.ACCENT);
-        iconLbl.setHorizontalAlignment(SwingConstants.CENTER);
-        iconLbl.setPreferredSize(new Dimension(44, 44));
-        iconLbl.setOpaque(false);
-        iconLbl.setAlignmentX(CENTER_ALIGNMENT);
-
-        JLabel main = new JLabel("Kéo thả file CSV để nhập danh bạ mới");
-        main.setFont(UIConstants.FONT_BODY_BOLD);
-        main.setForeground(UIConstants.TEXT_PRIMARY);
-        main.setAlignmentX(CENTER_ALIGNMENT);
-
-        JLabel sub = new JLabel("Hỗ trợ định dạng .csv, .vcf  (Max 10MB)");
-        sub.setFont(UIConstants.FONT_SMALL);
-        sub.setForeground(UIConstants.TEXT_MUTED);
-        sub.setAlignmentX(CENTER_ALIGNMENT);
-
-        JButton browseBtn = new JButton("Duyệt file");
-        browseBtn.setFont(UIConstants.FONT_SMALL_BOLD);
-        browseBtn.setForeground(UIConstants.ACCENT);
-        browseBtn.setBackground(UIConstants.BG_SECONDARY);
-        browseBtn.setBorder(BorderFactory.createLineBorder(UIConstants.ACCENT, 1, true));
-        browseBtn.setFocusPainted(false);
-        browseBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        browseBtn.setPreferredSize(new Dimension(100, 30));
-        browseBtn.setAlignmentX(CENTER_ALIGNMENT);
-        browseBtn.addActionListener(e -> openCsvFileChooser());
-        browseBtn.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { browseBtn.setBackground(UIConstants.BG_HOVER); }
-            @Override public void mouseExited(MouseEvent e)  { browseBtn.setBackground(UIConstants.BG_SECONDARY); }
-        });
-
-        zone.add(iconLbl);
-        zone.add(Box.createVerticalStrut(8));
-        zone.add(main);
-        zone.add(Box.createVerticalStrut(4));
-        zone.add(sub);
-        zone.add(Box.createVerticalStrut(10));
-        zone.add(browseBtn);
-
-        // Drag-and-drop support
-        zone.setDropTarget(new DropTarget(zone, new DropTargetAdapter() {
-            @Override public void drop(DropTargetDropEvent dtde) {
-                try {
-                    dtde.acceptDrop(DnDConstants.ACTION_COPY);
-                    @SuppressWarnings("unchecked")
-                    List<File> files = (List<File>) dtde.getTransferable()
-                            .getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!files.isEmpty()) importCsvFile(files.get(0));
-                } catch (Exception ignored) {}
-            }
-            @Override public void dragOver(DropTargetDragEvent dtde) {
-                zone.setBackground(UIConstants.BG_HOVER);
-            }
-            @Override public void dragExit(DropTargetEvent dte) {
-                zone.setBackground(UIConstants.BG_SECONDARY);
-            }
-        }));
-
-        return zone;
-    }
 
     // ── STATUS BAR ──────────────────────────────────────────
     private JPanel buildStatusBar() {
@@ -331,14 +272,32 @@ public class ContactPanel extends JPanel {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
 
-        editBtn = buildIconTextBtn("✎", "SỬA", UIConstants.TEXT_SECONDARY);
+        editBtn = buildIconTextBtn("", "SỬA", UIConstants.TEXT_SECONDARY);
         editBtn.addActionListener(e -> { if (isTrashMode) restoreSelected(); else editSelected(); });
 
-        deleteBtn = buildIconTextBtn("✖", "XÓA", UIConstants.DANGER);
+        deleteBtn = buildIconTextBtn("", "XÓA", UIConstants.DANGER);
         deleteBtn.addActionListener(e -> { if (isTrashMode) permanentlyDeleteSelected(); else deleteSelected(); });
+
+        // Nút Import CSV
+        JButton importBtn = new JButton("Import CSV");
+        importBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+        importBtn.setForeground(UIConstants.TEXT_PRIMARY);
+        importBtn.setBackground(UIConstants.BG_HOVER);
+        importBtn.setFocusPainted(false);
+        importBtn.addActionListener(e -> openCsvFileChooser());
+
+        // Nút Export CSV
+        JButton exportBtn = new JButton("Export CSV");
+        exportBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+        exportBtn.setForeground(UIConstants.TEXT_PRIMARY);
+        exportBtn.setBackground(UIConstants.BG_HOVER);
+        exportBtn.setFocusPainted(false);
+        exportBtn.addActionListener(e -> exportContacts());
 
         actions.add(editBtn);
         actions.add(deleteBtn);
+        actions.add(importBtn);
+        actions.add(exportBtn);
 
         bar.add(statusLabel, BorderLayout.WEST);
         bar.add(actions, BorderLayout.EAST);
@@ -364,7 +323,8 @@ public class ContactPanel extends JPanel {
     }
 
     private JButton buildIconTextBtn(String icon, String text, Color fg) {
-        JButton btn = new JButton(icon + " " + text);
+        String label = icon == null || icon.isEmpty() ? text : (icon + " " + text);
+        JButton btn = new JButton(label);
         btn.setFont(UIConstants.FONT_SMALL_BOLD);
         btn.setForeground(fg);
         btn.setBackground(UIConstants.BG_SECONDARY);
@@ -394,6 +354,7 @@ public class ContactPanel extends JPanel {
             @Override protected void done() {
                 try {
                     currentContacts = get();
+                    currentPage = 1;
                     refreshTable();
                     updateStatus();
                 } catch (Exception e) {
@@ -405,20 +366,85 @@ public class ContactPanel extends JPanel {
         }.execute();
     }
 
+    private JPanel buildPaginationPanel() {
+        paginationPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 4));
+        paginationPanel.setOpaque(false);
+        updatePaginationUI();
+        return paginationPanel;
+    }
+
+    private void updatePaginationUI() {
+        if (paginationPanel == null) return;
+        paginationPanel.removeAll();
+        
+        int totalPages = (int) Math.ceil((double) currentContacts.size() / pageSize);
+        if (totalPages <= 1) {
+            paginationPanel.revalidate();
+            paginationPanel.repaint();
+            return;
+        }
+
+        JButton prevBtn = new JButton("<");
+        prevBtn.setEnabled(currentPage > 1);
+        prevBtn.addActionListener(e -> {
+            if (currentPage > 1) { currentPage--; refreshTable(); }
+        });
+        paginationPanel.add(stylePageButton(prevBtn, false));
+
+        for (int i = 1; i <= totalPages; i++) {
+            JButton pageBtn = new JButton(String.valueOf(i));
+            boolean isCurrent = (i == currentPage);
+            pageBtn.setEnabled(!isCurrent);
+            final int page = i;
+            pageBtn.addActionListener(e -> {
+                currentPage = page;
+                refreshTable();
+            });
+            paginationPanel.add(stylePageButton(pageBtn, isCurrent));
+        }
+
+        JButton nextBtn = new JButton(">");
+        nextBtn.setEnabled(currentPage < totalPages);
+        nextBtn.addActionListener(e -> {
+            if (currentPage < totalPages) { currentPage++; refreshTable(); }
+        });
+        paginationPanel.add(stylePageButton(nextBtn, false));
+
+        paginationPanel.revalidate();
+        paginationPanel.repaint();
+    }
+    
+    private JButton stylePageButton(JButton btn, boolean isCurrent) {
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btn.setFocusPainted(false);
+        btn.setPreferredSize(new Dimension(32, 26));
+        if (isCurrent) {
+            btn.setBackground(UIConstants.ACCENT);
+            btn.setForeground(Color.WHITE);
+            btn.setBorder(BorderFactory.createEmptyBorder());
+        } else {
+            btn.setBackground(UIConstants.BG_SECONDARY);
+            btn.setForeground(UIConstants.TEXT_PRIMARY);
+            btn.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER, 1));
+        }
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
     public void setTrashMode(boolean trash) {
         this.isTrashMode = trash;
         if (trash) {
             titleLabel.setText("Thùng rác");
             addBtn.setVisible(false);
             groupFilter.setVisible(false);
-            editBtn.setText("\u21A9 KHÔI PHỤC");
-            deleteBtn.setText("\u2716 XÓA VĨNH VIỄN");
+            editBtn.setText("KHÔI PHỤC");
+            deleteBtn.setText("XÓA VĨNH VIỄN");
         } else {
             titleLabel.setText("Danh bạ");
             addBtn.setVisible(true);
             groupFilter.setVisible(true);
-            editBtn.setText("\u270E SỬA");
-            deleteBtn.setText("\u2716 XÓA");
+            editBtn.setText("SỬA");
+            deleteBtn.setText("XÓA");
         }
         loadContacts();
     }
@@ -431,8 +457,8 @@ public class ContactPanel extends JPanel {
         this.isTrashMode = false;
         addBtn.setVisible(true);
         groupFilter.setVisible(true);
-        editBtn.setText("\u270E SỬA");
-        deleteBtn.setText("\u2716 XÓA");
+        editBtn.setText("SỬA");
+        deleteBtn.setText("XÓA");
     }
 
     public void filterByGroupId(int groupId, String groupName) {
@@ -554,6 +580,16 @@ public class ContactPanel extends JPanel {
         }
     }
 
+    private void shareSelected() {
+        int row = contactTable.getSelectedRow();
+        if (row < 0) { JOptionPane.showMessageDialog(this, "Vui lòng chọn liên hệ.", "Thông báo", JOptionPane.INFORMATION_MESSAGE); return; }
+        Contact c = currentContacts.get(row);
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        Frame frame = (parent instanceof Frame) ? (Frame) parent : null;
+        QRCodeDialog dlg = new QRCodeDialog(frame, c);
+        dlg.setVisible(true);
+    }
+
     private void deleteSelected() {
         int row = contactTable.getSelectedRow();
         if (row < 0) return;
@@ -651,28 +687,22 @@ public class ContactPanel extends JPanel {
                         if (parts.isEmpty()) continue;
 
                         Contact c = new Contact();
-                        c.setName(csvVal(parts, 0));                          // name
-                        c.setPhone(csvVal(parts, 1));                         // phone
-                        c.setEmail(csvVal(parts, 2));                         // email
-                        c.setAddress(csvVal(parts, 3));                       // address
-                        c.setBirthday(convertCsvDate(csvVal(parts, 4)));      // birthday
-                        c.setNotes(csvVal(parts, 5));                         // notes
+                        c.setName(csvVal(parts, 0));
+                        c.setPhone(csvVal(parts, 1));
+                        c.setEmail(csvVal(parts, 2));
+                        c.setAddress(csvVal(parts, 3));
+                        c.setBirthday(convertCsvDate(csvVal(parts, 4)));
+                        c.setNotes(csvVal(parts, 5));
 
-                        // group_id: hỗ trợ tên (FAVORITES, FAMILY...) hoặc số (1-5)
                         String groupStr = csvVal(parts, 6);
                         c.setGroupId(mapGroupId(groupStr));
 
-                        // company name (cột 7)
                         String companyName = csvVal(parts, 7);
 
                         if (!c.getName().isEmpty()) {
-                            // Kiểm tra trùng SĐT trước khi thêm
                             if (!c.getPhone().isEmpty()) {
                                 Contact dup = contactService.findDuplicateByPhone(c.getPhone(), null);
-                                if (dup != null) {
-                                    skipped++;
-                                    continue; // Bỏ qua liên hệ trùng SĐT
-                                }
+                                if (dup != null) { skipped++; continue; }
                             }
                             contactService.addContact(c, companyName);
                             count++;
@@ -689,17 +719,54 @@ public class ContactPanel extends JPanel {
                     loadContacts();
                     if (onRefresh != null) onRefresh.run();
                     String msg = "Đã nhập " + n + " liên hệ thành công!";
-                    if (s > 0) {
-                        msg += "\n⚠ Bỏ qua " + s + " liên hệ do trùng số điện thoại.";
-                    }
-                    JOptionPane.showMessageDialog(ContactPanel.this,
-                            msg, "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    if (s > 0) msg += "\n⚠ Bỏ qua " + s + " liên hệ do trùng số điện thoại.";
+                    JOptionPane.showMessageDialog(ContactPanel.this, msg, "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Lỗi nhập file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi nhập file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
+    }
+
+    /**
+     * Export toàn bộ danh bạ hiện tại ra file CSV.
+     */
+    private void exportContacts() {
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Chọn vị trí lưu CSV");
+        fc.setSelectedFile(new File("contacts_export.csv"));
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File out = fc.getSelectedFile();
+            try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(out), "UTF-8"))) {
+                // Header
+                pw.println("Tên,SĐT,Email,Địa chỉ,Ngày sinh,Ghi chú,Nhóm,Công ty");
+                for (Contact c : currentContacts) {
+                    String line = String.join(",",
+                            escapeCsv(c.getName()),
+                            escapeCsv(c.getPhone()),
+                            escapeCsv(c.getEmail()),
+                            escapeCsv(c.getAddress()),
+                            escapeCsv(c.getBirthday()),
+                            escapeCsv(c.getNotes()),
+                            escapeCsv(getGroupForContact(c)),
+                            escapeCsv(c.getCompanyName())
+                    );
+                    pw.println(line);
+                }
+                JOptionPane.showMessageDialog(this, "Export thành công tới " + out.getAbsolutePath(), "Export", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi export: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /** Escape CSV field nếu chứa dấu phẩy hoặc dấu ngoặc kép */
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     /** Parse 1 dòng CSV, hỗ trợ trường trong ngoặc kép chứa dấu phẩy. */
@@ -772,6 +839,8 @@ public class ContactPanel extends JPanel {
         } else {
             JMenuItem edit = new JMenuItem("Sửa liên hệ");
             edit.addActionListener(e -> editSelected());
+            JMenuItem share = new JMenuItem("Chia sẻ (Mã QR)");
+            share.addActionListener(e -> shareSelected());
             JMenuItem del = new JMenuItem("Xóa liên hệ");
             del.addActionListener(e -> deleteSelected());
             JMenu groupMenu = new JMenu("Chuyển nhóm");
@@ -780,7 +849,7 @@ public class ContactPanel extends JPanel {
                 gi.addActionListener(e -> changeSelectedGroup(g.getId()));
                 groupMenu.add(gi);
             }
-            menu.add(edit); menu.add(groupMenu); menu.addSeparator(); menu.add(del);
+            menu.add(edit); menu.add(share); menu.add(groupMenu); menu.addSeparator(); menu.add(del);
         }
         return menu;
     }
@@ -788,7 +857,9 @@ public class ContactPanel extends JPanel {
     // ── TABLE REFRESH ────────────────────────────────────────
     private void refreshTable() {
         tableModel.setRowCount(0);
-        for (int i = 0; i < currentContacts.size(); i++) {
+        int start = (currentPage - 1) * pageSize;
+        int end = Math.min(start + pageSize, currentContacts.size());
+        for (int i = start; i < end; i++) {
             Contact c = currentContacts.get(i);
             tableModel.addRow(new Object[]{
                     i + 1,
@@ -797,10 +868,10 @@ public class ContactPanel extends JPanel {
                     c.getPhone()  != null ? c.getPhone()  : "",
                     c.getEmail()  != null ? c.getEmail()  : "",
                     c.getCompanyName() != null ? c.getCompanyName() : "",
-                    getGroupForContact(c),
-                    c.getCompletionPercent()
+                    getGroupForContact(c),                    c.getCompletionPercent()
             });
         }
+        updatePaginationUI();
     }
 
     private void updateStatus() {
@@ -964,6 +1035,119 @@ public class ContactPanel extends JPanel {
             String txt = pct + "%";
             g2.drawString(txt, x + barW + 6, y + barH);
             g2.dispose();
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    //  Drag-and-drop row reordering support
+    // ---------------------------------------------------------------------
+    private class TableRowTransferHandler extends TransferHandler {
+        private DataFlavor localObjectFlavor;
+        private final JTable table;
+        private int[] rows = null;
+        private int addIndex = -1; // Location where rows were added
+        private int addCount = 0;  // Number of rows added.
+
+        public TableRowTransferHandler(JTable table) {
+            this.table = table;
+            try {
+                localObjectFlavor = new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType + ";class=java.util.List");
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        protected Transferable createTransferable(JComponent c) {
+            rows = table.getSelectedRows();
+            List<Contact> transfered = new ArrayList<>();
+            for (int row : rows) {
+                transfered.add(currentContacts.get(row));
+            }
+            return new Transferable() {
+                @Override public DataFlavor[] getTransferDataFlavors() { return new DataFlavor[]{localObjectFlavor}; }
+                @Override public boolean isDataFlavorSupported(DataFlavor flavor) { return localObjectFlavor.equals(flavor); }
+                @Override public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+                    if (isDataFlavorSupported(flavor)) return transfered;
+                    throw new UnsupportedFlavorException(flavor);
+                }
+            };
+        }
+
+        @Override
+        public boolean canImport(TransferSupport info) {
+            return info.isDrop() && (info.isDataFlavorSupported(localObjectFlavor) || info.isDataFlavorSupported(DataFlavor.javaFileListFlavor));
+        }
+
+        @Override
+        public int getSourceActions(JComponent c) {
+            return MOVE;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean importData(TransferSupport info) {
+            if (!canImport(info)) return false;
+            
+            // Handle file drops
+            if (info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                try {
+                    List<File> files = (List<File>) info.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+                    if (!files.isEmpty()) importCsvFile(files.get(0));
+                    return true;
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return false;
+                }
+            }
+            
+            // Handle row reordering
+            JTable target = (JTable) info.getComponent();
+            JTable.DropLocation dl = (JTable.DropLocation) info.getDropLocation();
+            int index = dl.getRow();
+            int max = table.getModel().getRowCount();
+            if (index < 0 || index > max) index = max;
+            try {
+                List<Contact> data = (List<Contact>) info.getTransferable().getTransferData(localObjectFlavor);
+                addIndex = index;
+                addCount = data.size();
+                // Adjust currentContacts order
+                for (int i = 0; i < data.size(); i++) {
+                    currentContacts.add(index + i, data.get(i));
+                }
+                // Remove original rows (if moving down, adjust index)
+                if (rows != null) {
+                    // If we moved rows down, their original indices have shifted
+                    if (addIndex > rows[0]) {
+                        for (int i = rows.length - 1; i >= 0; i--) {
+                            currentContacts.remove(rows[i]);
+                        }
+                    } else {
+                        for (int i = 0; i < rows.length; i++) {
+                            currentContacts.remove(rows[i] + addCount);
+                        }
+                    }
+                }
+                refreshTable();
+                
+                // Update table selections
+                target.getSelectionModel().clearSelection();
+                for (int i = 0; i < addCount; i++) {
+                    target.getSelectionModel().addSelectionInterval(addIndex + i, addIndex + i);
+                }
+
+                return true;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            return false;
+        }
+
+        @Override
+        protected void exportDone(JComponent source, Transferable data, int action) {
+            rows = null;
+            addIndex = -1;
+            addCount = 0;
         }
     }
 }
