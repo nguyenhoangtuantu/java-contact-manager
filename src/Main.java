@@ -9,7 +9,13 @@ public class Main {
     public static void main(String[] args) {
         // Thiết lập Look and Feel
         try {
-            FlatDarkLaf.setup();
+            boolean isDark = java.util.prefs.Preferences.userRoot().node("contactmanager").getBoolean("dark_mode", false);
+            if (isDark) {
+                com.formdev.flatlaf.FlatDarkLaf.setup();
+            } else {
+                com.formdev.flatlaf.FlatLightLaf.setup();
+            }
+            ui.UIConstants.applyTheme(isDark);
             UIManager.put("Button.arc", 8);
             UIManager.put("Component.arc", 8);
             UIManager.put("TextComponent.Arc", 999);

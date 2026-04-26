@@ -358,24 +358,26 @@ public class MainFrame extends JFrame {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
                 BorderFactory.createEmptyBorder(12, 12, 12, 12)));
 
-        String email = SupabaseConfig.getInstance().getCurrentUserEmail();
-        String initial = (email != null && !email.isEmpty())
-                ? String.valueOf(email.charAt(0)).toUpperCase() : "U";
+        SupabaseConfig config = SupabaseConfig.getInstance();
+        String email = config.getCurrentUserEmail();
+        String dName = config.getCurrentUserDisplayName();
+        String avatarStr = config.getCurrentUserAvatar();
+        
+        String displayIcon = "U";
+        if (avatarStr != null && !avatarStr.isBlank()) {
+            displayIcon = avatarStr;
+        } else if (dName != null && !dName.isBlank()) {
+            displayIcon = String.valueOf(dName.charAt(0)).toUpperCase();
+        } else if (email != null && !email.isBlank()) {
+            displayIcon = String.valueOf(email.charAt(0)).toUpperCase();
+        }
+
+        String displayName = (dName != null && !dName.isBlank()) ? dName : (email != null ? email.split("@")[0] : "");
 
         // Avatar circle
-        JLabel avatar = new JLabel(initial) {
+        JLabel avatar = new JLabel(displayIcon) {
             @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(UIConstants.ACCENT);
-                g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
-                FontMetrics fm = g2.getFontMetrics();
-                String t = getText();
-                g2.drawString(t, (getWidth() - fm.stringWidth(t)) / 2,
-                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-                g2.dispose();
+                util.AvatarUtil.drawAvatar((Graphics2D) g, getWidth(), getHeight(), getText(), "U");
             }
         };
         avatar.setPreferredSize(new Dimension(30, 30));
@@ -385,39 +387,48 @@ public class MainFrame extends JFrame {
         info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
         info.setOpaque(false);
 
-        JLabel emailLbl = new JLabel(email != null ? email : "");
+        JLabel emailLbl = new JLabel(displayName);
         emailLbl.setFont(UIConstants.FONT_SMALL_BOLD);
         emailLbl.setForeground(UIConstants.TEXT_PRIMARY);
 
-        JLabel roleLbl = new JLabel("Admin Plan");
+        JLabel roleLbl = new JLabel(email);
         roleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         roleLbl.setForeground(UIConstants.TEXT_MUTED);
 
         info.add(emailLbl);
         info.add(roleLbl);
 
-        JButton logoutBtn = new JButton("\u2192"); // →
-        logoutBtn.setToolTipText("Đăng xuất");
-        logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        logoutBtn.setForeground(UIConstants.DANGER);
-        logoutBtn.setContentAreaFilled(false);
-        logoutBtn.setBorderPainted(false);
-        logoutBtn.setFocusPainted(false);
-        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        logoutBtn.addActionListener(e -> {
-            int ok = JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc chắn muốn đăng xuất?", "Đăng xuất", JOptionPane.YES_NO_OPTION);
-            if (ok == JOptionPane.YES_OPTION) {
-                SupabaseConfig.getInstance().clearAuthSession();
-                setVisible(false); dispose();
-                LoginFrame login = new LoginFrame();
-                if (login.checkSupabaseConfig()) login.setVisible(true);
-            }
+        JButton profileBtn = new JButton("⚙"); 
+        profileBtn.setToolTipText("Hồ sơ Admin");
+        profileBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        profileBtn.setForeground(UIConstants.TEXT_SECONDARY);
+        profileBtn.setContentAreaFilled(false);
+        profileBtn.setBorderPainted(false);
+        profileBtn.setFocusPainted(false);
+        profileBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        profileBtn.addActionListener(e -> {
+            AdminProfileDialog dialog = new AdminProfileDialog(MainFrame.this);
+            dialog.setVisible(true);
         });
 
         p.add(avatar, BorderLayout.WEST);
         p.add(info, BorderLayout.CENTER);
-        p.add(logoutBtn, BorderLayout.EAST);
+        p.add(profileBtn, BorderLayout.EAST);
+        
+        p.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        p.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                AdminProfileDialog dialog = new AdminProfileDialog(MainFrame.this);
+                dialog.setVisible(true);
+            }
+            @Override public void mouseEntered(MouseEvent e) {
+                p.setBackground(UIConstants.BG_HOVER);
+            }
+            @Override public void mouseExited(MouseEvent e) {
+                p.setBackground(UIConstants.BG_SIDEBAR);
+            }
+        });
+        
         return p;
     }
 

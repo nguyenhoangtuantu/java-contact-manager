@@ -47,14 +47,15 @@ public class SupabaseService {
      */
     public boolean loginUser(String email, String password) throws Exception {
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
-        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password";
+        // Lưu ý: Cần chạy file migration_user_avatar.sql trên Supabase trước để thêm cột avatar
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar";
 
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() >= 400) {
             System.err.println("[Login Error " + response.statusCode() + "]: " + response.body());
-            throw new Exception("Lỗi kết nối cơ sở dữ liệu!");
+            throw new Exception("Lỗi kết nối cơ sở dữ liệu (Vui lòng đảm bảo đã chạy migration_user_avatar.sql)!");
         }
 
         JsonArray arr = JsonParser.parseString(response.body()).getAsJsonArray();
@@ -71,8 +72,12 @@ public class SupabaseService {
             throw new Exception("Mật khẩu không chính xác!");
         }
 
+        // Đọc thêm thông tin hồ sơ
+        String dName = getStr(user, "display_name");
+        String avatar = getStr(user, "avatar");
+
         // Lưu phiên đăng nhập
-        config.setAuthSession(user.get("id").getAsString(), email);
+        config.setAuthSession(user.get("id").getAsString(), email, dName, avatar);
         return true;
     }
 
@@ -198,6 +203,89 @@ public class SupabaseService {
             throw new Exception("Cập nhật mật khẩu thất bại!");
         }
 
+        return true;
+    }
+
+    /**
+     * Đổi mật khẩu cho người dùng đang đăng nhập bằng mật khẩu hiện tại.
+     */
+    public boolean changePassword(String currentPassword, String newPassword) throws Exception {
+        String email = config.getCurrentUserEmail();
+        if (email == null) throw new Exception("Không tìm thấy thông tin phiên đăng nhập!");
+
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,password";
+
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new Exception("Lỗi kết nối cơ sở dữ liệu!");
+        }
+
+        JsonArray arr = JsonParser.parseString(response.body()).getAsJsonArray();
+        if (arr.isEmpty()) throw new Exception("Tài khoản không tồn tại!");
+
+        JsonObject user = arr.get(0).getAsJsonObject();
+        String storedHash = getStr(user, "password");
+        String inputHash  = sha256(currentPassword);
+
+        if (storedHash == null || !MessageDigest.isEqual(storedHash.getBytes(StandardCharsets.UTF_8),
+                inputHash.getBytes(StandardCharsets.UTF_8))) {
+            throw new Exception("Mật khẩu hiện tại không chính xác!");
+        }
+
+        String userId = user.get("id").getAsString();
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("password", sha256(newPassword));
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Cập nhật mật khẩu thất bại!");
+        }
+
+        return true;
+    }
+
+    /**
+     * Cập nhật thông tin hồ sơ (tên hiển thị, avatar).
+     */
+    public boolean updateUserProfile(String displayName, String avatarUrl) throws Exception {
+        String userId = config.getCurrentUserId();
+        if (userId == null) throw new Exception("Không tìm thấy thông tin phiên đăng nhập!");
+
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("display_name", displayName);
+        if (avatarUrl != null) {
+            body.addProperty("avatar", avatarUrl);
+        } else {
+            body.add("avatar", JsonNull.INSTANCE);
+        }
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .header("Prefer", "return=representation")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Cập nhật hồ sơ thất bại: " + updateRes.body());
+        }
+
+        // Cập nhật session tại client
+        config.updateUserProfile(displayName, avatarUrl);
         return true;
     }
 

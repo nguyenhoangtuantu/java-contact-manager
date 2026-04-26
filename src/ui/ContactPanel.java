@@ -6,6 +6,7 @@ import model.GroupInfo;
 import service.ContactService;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.table.*;
 import java.awt.datatransfer.*;
 import java.awt.dnd.*;
@@ -22,29 +23,34 @@ import java.util.List;
 
 /**
  * Panel chính hiển thị danh sách liên hệ.
- * Light-theme redesign: header trắng, bảng card trắng, drop-zone CSV, status bar.
+ * Light-theme redesign: header trắng, bảng card trắng, drop-zone CSV, status
+ * bar.
  */
 public class ContactPanel extends JPanel {
 
     private final ContactService contactService;
-    private JTable              contactTable;
-    private DefaultTableModel   tableModel;
-    private JTextField          searchField;
+    private JTable contactTable;
+    private DefaultTableModel tableModel;
+    private JTextField searchField;
     // Lazy-load pagination
     private final int pageSize = 50; // số bản ghi mỗi trang
     private int currentPage = 1;
     private JPanel paginationPanel;
-    private JComboBox<String>   groupFilter;
-    private JLabel              statusLabel;
-    private JLabel              titleLabel;
-    private JButton             addBtn;
-    private JButton             editBtn;
-    private JButton             deleteBtn;
+    private JComboBox<String> groupFilter;
+    private JLabel statusLabel;
+    private JLabel titleLabel;
+    private JButton addBtn;
+    private JButton editBtn;
+    private JButton deleteBtn;
+    private TableColumn checkboxColumn;
+    private boolean isSelectionMode = false;
+    private JButton selectBtn;
+    private JButton cancelSelectBtn;
 
-    private List<Contact>   currentContacts = new ArrayList<>();
-    private List<GroupInfo> allGroups       = new ArrayList<>();
-    private Runnable        onRefresh;
-    private boolean         isTrashMode     = false;
+    private List<Contact> currentContacts = new ArrayList<>();
+    private List<GroupInfo> allGroups = new ArrayList<>();
+    private Runnable onRefresh;
+    private boolean isTrashMode = false;
 
     public ContactPanel() {
         this.contactService = ContactService.getInstance();
@@ -53,10 +59,12 @@ public class ContactPanel extends JPanel {
         initComponents();
     }
 
-    public void setOnRefresh(Runnable r) { this.onRefresh = r; }
+    public void setOnRefresh(Runnable r) {
+        this.onRefresh = r;
+    }
 
     // =========================================================
-    //  INIT
+    // INIT
     // =========================================================
     private void initComponents() {
         add(buildHeader(), BorderLayout.NORTH);
@@ -81,7 +89,7 @@ public class ContactPanel extends JPanel {
         titleLabel.setForeground(UIConstants.TEXT_PRIMARY);
 
         loadGroupFilter();
-        groupFilter = new JComboBox<>(new String[]{"Tất cả"});
+        groupFilter = new JComboBox<>(new String[] { "Tất cả" });
         groupFilter.setFont(UIConstants.FONT_BODY);
         groupFilter.setPreferredSize(new Dimension(130, 32));
         groupFilter.addActionListener(e -> filterByGroup());
@@ -108,13 +116,16 @@ public class ContactPanel extends JPanel {
         searchField.setText(PLACEHOLDER);
         searchField.setForeground(UIConstants.TEXT_MUTED);
         searchField.addFocusListener(new FocusAdapter() {
-            @Override public void focusGained(FocusEvent e) {
+            @Override
+            public void focusGained(FocusEvent e) {
                 if (searchField.getText().equals(PLACEHOLDER)) {
                     searchField.setText("");
                     searchField.setForeground(UIConstants.TEXT_PRIMARY);
                 }
             }
-            @Override public void focusLost(FocusEvent e) {
+
+            @Override
+            public void focusLost(FocusEvent e) {
                 if (searchField.getText().isEmpty()) {
                     searchField.setText(PLACEHOLDER);
                     searchField.setForeground(UIConstants.TEXT_MUTED);
@@ -153,9 +164,18 @@ public class ContactPanel extends JPanel {
         card.setBackground(UIConstants.BG_SECONDARY);
         card.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER, 1, true));
 
-        String[] cols = {"", "ANH", "TÊN LIÊN HỆ", "SỐ ĐIỆN THOẠI", "EMAIL", "CÔNG TY", "NHÓM", "HOÀN THIỆN"};
+        String[] cols = { "\u2611", "STT", "ANH", "TÊN LIÊN HỆ", "SỐ ĐIỆN THOẠI", "EMAIL", "CÔNG TY", "NHÓM",
+                "HOÀN THIỆN" };
         tableModel = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override
+            public Class<?> getColumnClass(int c) {
+                return c == 0 ? Boolean.class : Object.class;
+            }
+
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return c == 0;
+            }
         };
 
         contactTable = new JTable(tableModel);
@@ -178,14 +198,16 @@ public class ContactPanel extends JPanel {
         // Column widths
         contactTable.getColumnModel().getColumn(0).setMaxWidth(36);
         contactTable.getColumnModel().getColumn(0).setMinWidth(36);
-        contactTable.getColumnModel().getColumn(1).setMaxWidth(56);
-        contactTable.getColumnModel().getColumn(1).setMinWidth(56);
-        contactTable.getColumnModel().getColumn(2).setPreferredWidth(170);
-        contactTable.getColumnModel().getColumn(3).setPreferredWidth(120);
-        contactTable.getColumnModel().getColumn(4).setPreferredWidth(160);
-        contactTable.getColumnModel().getColumn(5).setPreferredWidth(100);
+        contactTable.getColumnModel().getColumn(1).setMaxWidth(36);
+        contactTable.getColumnModel().getColumn(1).setMinWidth(36);
+        contactTable.getColumnModel().getColumn(2).setMaxWidth(56);
+        contactTable.getColumnModel().getColumn(2).setMinWidth(56);
+        contactTable.getColumnModel().getColumn(3).setPreferredWidth(170);
+        contactTable.getColumnModel().getColumn(4).setPreferredWidth(120);
+        contactTable.getColumnModel().getColumn(5).setPreferredWidth(160);
         contactTable.getColumnModel().getColumn(6).setPreferredWidth(100);
         contactTable.getColumnModel().getColumn(7).setPreferredWidth(100);
+        contactTable.getColumnModel().getColumn(8).setPreferredWidth(100);
 
         // Header
         JTableHeader header = contactTable.getTableHeader();
@@ -197,41 +219,68 @@ public class ContactPanel extends JPanel {
         ((DefaultTableCellRenderer) header.getDefaultRenderer()).setHorizontalAlignment(SwingConstants.LEFT);
 
         // Renderers
-        contactTable.getColumnModel().getColumn(0).setCellRenderer(new IndexRenderer());
-        contactTable.getColumnModel().getColumn(1).setCellRenderer(new AvatarRenderer());
-        contactTable.getColumnModel().getColumn(2).setCellRenderer(new NameRenderer());
-        contactTable.getColumnModel().getColumn(6).setCellRenderer(new GroupBadgeRenderer());
-        contactTable.getColumnModel().getColumn(7).setCellRenderer(new ProgressBarRenderer());
+        contactTable.getColumnModel().getColumn(1).setCellRenderer(new IndexRenderer());
+        contactTable.getColumnModel().getColumn(2).setCellRenderer(new AvatarRenderer());
+        contactTable.getColumnModel().getColumn(3).setCellRenderer(new NameRenderer());
+        contactTable.getColumnModel().getColumn(7).setCellRenderer(new GroupBadgeRenderer());
+        contactTable.getColumnModel().getColumn(8).setCellRenderer(new ProgressBarRenderer());
 
         // Default renderer for other columns
         contactTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override public Component getTableCellRendererComponent(JTable t, Object v,
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v,
                     boolean sel, boolean foc, int row, int col) {
                 super.getTableCellRendererComponent(t, v, sel, foc, row, col);
                 setFont(UIConstants.FONT_TABLE);
                 setForeground(UIConstants.TEXT_SECONDARY);
                 setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-                if (!sel) setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
+                if (!sel)
+                    setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
                 return this;
             }
         });
 
+        // Default hidden Checkbox column
+        checkboxColumn = contactTable.getColumnModel().getColumn(0);
+        contactTable.getColumnModel().removeColumn(checkboxColumn);
+
+        Timer longPressTimer = new Timer(500, e -> {
+            enterSelectionMode();
+        });
+        longPressTimer.setRepeats(false);
+
         // Double-click
         contactTable.addMouseListener(new MouseAdapter() {
-            @Override public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    if (isTrashMode) restoreSelected(); else editSelected();
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && !isSelectionMode) {
+                    if (isTrashMode)
+                        restoreSelected();
+                    else
+                        editSelected();
                 }
             }
         });
-        // Right-click
+        // Right-click and Long-press
         contactTable.addMouseListener(new MouseAdapter() {
-            @Override public void mousePressed(MouseEvent e)  { tryPopup(e); }
-            @Override public void mouseReleased(MouseEvent e) { tryPopup(e); }
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e) && !isSelectionMode)
+                    longPressTimer.restart();
+                tryPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                longPressTimer.stop();
+                tryPopup(e);
+            }
+
             private void tryPopup(MouseEvent e) {
-                if (!e.isPopupTrigger()) return;
+                if (!e.isPopupTrigger())
+                    return;
                 int row = contactTable.rowAtPoint(e.getPoint());
-                if (row >= 0) {
+                if (row >= 0 && !isSelectionMode) {
                     contactTable.setRowSelectionInterval(row, row);
                     buildContextMenu().show(e.getComponent(), e.getX(), e.getY());
                 }
@@ -244,18 +293,16 @@ public class ContactPanel extends JPanel {
         card.add(scroll, BorderLayout.CENTER);
 
         wrapper.add(card, BorderLayout.CENTER);
-        
+
         JPanel bottomZone = new JPanel(new BorderLayout(0, 4));
         bottomZone.setOpaque(false);
         bottomZone.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
-        
+
         bottomZone.add(buildPaginationPanel(), BorderLayout.CENTER);
-        
+
         wrapper.add(bottomZone, BorderLayout.SOUTH);
         return wrapper;
     }
-
-
 
     // ── STATUS BAR ──────────────────────────────────────────
     private JPanel buildStatusBar() {
@@ -272,11 +319,32 @@ public class ContactPanel extends JPanel {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
 
+        selectBtn = buildIconTextBtn("", "CHỌN TẤT CẢ", UIConstants.ACCENT);
+        selectBtn.addActionListener(e -> {
+            for (int i = 0; i < tableModel.getRowCount(); i++)
+                tableModel.setValueAt(true, i, 0);
+        });
+        selectBtn.setVisible(false);
+
+        cancelSelectBtn = buildIconTextBtn("", "HỦY", UIConstants.TEXT_SECONDARY);
+        cancelSelectBtn.addActionListener(e -> exitSelectionMode());
+        cancelSelectBtn.setVisible(false);
+
         editBtn = buildIconTextBtn("", "SỬA", UIConstants.TEXT_SECONDARY);
-        editBtn.addActionListener(e -> { if (isTrashMode) restoreSelected(); else editSelected(); });
+        editBtn.addActionListener(e -> {
+            if (isTrashMode)
+                restoreSelected();
+            else
+                editSelected();
+        });
 
         deleteBtn = buildIconTextBtn("", "XÓA", UIConstants.DANGER);
-        deleteBtn.addActionListener(e -> { if (isTrashMode) permanentlyDeleteSelected(); else deleteSelected(); });
+        deleteBtn.addActionListener(e -> {
+            if (isTrashMode)
+                permanentlyDeleteSelected();
+            else
+                deleteSelected();
+        });
 
         // Nút Import CSV
         JButton importBtn = new JButton("Import CSV");
@@ -294,6 +362,8 @@ public class ContactPanel extends JPanel {
         exportBtn.setFocusPainted(false);
         exportBtn.addActionListener(e -> exportContacts());
 
+        actions.add(selectBtn);
+        actions.add(cancelSelectBtn);
         actions.add(editBtn);
         actions.add(deleteBtn);
         actions.add(importBtn);
@@ -312,12 +382,20 @@ public class ContactPanel extends JPanel {
         btn.setBackground(bg);
         btn.setFocusPainted(false);
         btn.setBorderPainted(!rounded);
-        if (!rounded) btn.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER, 1, true));
+        if (!rounded)
+            btn.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER, 1, true));
         btn.setOpaque(true);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { btn.setBackground(bg.darker()); }
-            @Override public void mouseExited(MouseEvent e)  { btn.setBackground(bg); }
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btn.setBackground(bg.darker());
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btn.setBackground(bg);
+            }
         });
         return btn;
     }
@@ -333,14 +411,22 @@ public class ContactPanel extends JPanel {
         btn.setOpaque(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { btn.setOpaque(true); btn.setBackground(UIConstants.BG_HOVER); }
-            @Override public void mouseExited(MouseEvent e)  { btn.setOpaque(false); }
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btn.setOpaque(true);
+                btn.setBackground(UIConstants.BG_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btn.setOpaque(false);
+            }
         });
         return btn;
     }
 
     // =========================================================
-    //  PUBLIC API
+    // PUBLIC API
     // =========================================================
     public void setTitle(String title) {
         titleLabel.setText(title);
@@ -348,10 +434,13 @@ public class ContactPanel extends JPanel {
 
     public void loadContacts() {
         new SwingWorker<List<Contact>, Void>() {
-            @Override protected List<Contact> doInBackground() throws Exception {
+            @Override
+            protected List<Contact> doInBackground() throws Exception {
                 return isTrashMode ? contactService.getDeletedContacts() : contactService.getAllContacts();
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     currentContacts = get();
                     currentPage = 1;
@@ -374,9 +463,10 @@ public class ContactPanel extends JPanel {
     }
 
     private void updatePaginationUI() {
-        if (paginationPanel == null) return;
+        if (paginationPanel == null)
+            return;
         paginationPanel.removeAll();
-        
+
         int totalPages = (int) Math.ceil((double) currentContacts.size() / pageSize);
         if (totalPages <= 1) {
             paginationPanel.revalidate();
@@ -387,7 +477,10 @@ public class ContactPanel extends JPanel {
         JButton prevBtn = new JButton("<");
         prevBtn.setEnabled(currentPage > 1);
         prevBtn.addActionListener(e -> {
-            if (currentPage > 1) { currentPage--; refreshTable(); }
+            if (currentPage > 1) {
+                currentPage--;
+                refreshTable();
+            }
         });
         paginationPanel.add(stylePageButton(prevBtn, false));
 
@@ -406,14 +499,17 @@ public class ContactPanel extends JPanel {
         JButton nextBtn = new JButton(">");
         nextBtn.setEnabled(currentPage < totalPages);
         nextBtn.addActionListener(e -> {
-            if (currentPage < totalPages) { currentPage++; refreshTable(); }
+            if (currentPage < totalPages) {
+                currentPage++;
+                refreshTable();
+            }
         });
         paginationPanel.add(stylePageButton(nextBtn, false));
 
         paginationPanel.revalidate();
         paginationPanel.repaint();
     }
-    
+
     private JButton stylePageButton(JButton btn, boolean isCurrent) {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btn.setFocusPainted(false);
@@ -464,75 +560,99 @@ public class ContactPanel extends JPanel {
     public void filterByGroupId(int groupId, String groupName) {
         titleLabel.setText("Nhóm: " + groupName);
         new SwingWorker<List<Contact>, Void>() {
-            @Override protected List<Contact> doInBackground() throws Exception {
+            @Override
+            protected List<Contact> doInBackground() throws Exception {
                 return contactService.getContactsByGroupId(groupId);
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     currentContacts = get();
                     refreshTable();
-                    statusLabel.setText("NHÓM: " + groupName.toUpperCase() + "  —  " + currentContacts.size() + " LIÊN HỆ");
-                } catch (Exception ignored) {}
+                    statusLabel.setText(
+                            "NHÓM: " + groupName.toUpperCase() + "  —  " + currentContacts.size() + " LIÊN HỆ");
+                } catch (Exception ignored) {
+                }
             }
         }.execute();
     }
 
     public void filterByRecent() {
         new SwingWorker<List<Contact>, Void>() {
-            @Override protected List<Contact> doInBackground() throws Exception {
+            @Override
+            protected List<Contact> doInBackground() throws Exception {
                 return contactService.getRecentContacts(30);
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     currentContacts = get();
                     refreshTable();
                     statusLabel.setText("GẦN ĐÂY  —  " + currentContacts.size() + " LIÊN HỆ");
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }.execute();
     }
 
     // =========================================================
-    //  PRIVATE ACTIONS
+    // PRIVATE ACTIONS
     // =========================================================
     private void performSearch() {
         String kw = searchField.getText().trim();
-        if (kw.equals("Tìm kiếm theo tên, SĐT, email...") || kw.isEmpty()) { loadContacts(); return; }
+        if (kw.equals("Tìm kiếm theo tên, SĐT, email...") || kw.isEmpty()) {
+            loadContacts();
+            return;
+        }
         new SwingWorker<List<Contact>, Void>() {
-            @Override protected List<Contact> doInBackground() throws Exception {
+            @Override
+            protected List<Contact> doInBackground() throws Exception {
                 return contactService.searchContacts(kw);
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     currentContacts = get();
                     refreshTable();
                     statusLabel.setText("KẾT QUẢ: " + currentContacts.size() + " LIÊN HỆ");
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }.execute();
     }
 
     private void loadGroupFilter() {
         new SwingWorker<List<GroupInfo>, Void>() {
-            @Override protected List<GroupInfo> doInBackground() throws Exception {
+            @Override
+            protected List<GroupInfo> doInBackground() throws Exception {
                 return contactService.getAllGroups();
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     allGroups = get();
-                    if (groupFilter == null) return;
+                    if (groupFilter == null)
+                        return;
                     groupFilter.removeAllItems();
                     groupFilter.addItem("Tất cả");
                     for (GroupInfo g : allGroups)
                         groupFilter.addItem(g.getIcon() + " " + g.getDisplayName());
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }.execute();
     }
 
     private void filterByGroup() {
         int idx = groupFilter.getSelectedIndex();
-        if (idx <= 0) { loadContacts(); return; }
+        if (idx <= 0) {
+            loadContacts();
+            return;
+        }
         if (idx - 1 < allGroups.size()) {
             GroupInfo g = allGroups.get(idx - 1);
             filterByGroupId(g.getId(), g.getDisplayName());
@@ -546,44 +666,122 @@ public class ContactPanel extends JPanel {
         dlg.setVisible(true);
         if (dlg.isSaved()) {
             new SwingWorker<Void, Void>() {
-                @Override protected Void doInBackground() throws Exception {
-                    contactService.addContact(dlg.getContact(), dlg.getCompanyName()); return null;
+                @Override
+                protected Void doInBackground() throws Exception {
+                    contactService.addContact(dlg.getContact(), dlg.getCompanyName());
+                    return null;
                 }
-                @Override protected void done() {
-                    try { get(); loadContacts(); if (onRefresh != null) onRefresh.run(); }
-                    catch (Exception e) { JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Lỗi thêm: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE); }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        loadContacts();
+                        if (onRefresh != null)
+                            onRefresh.run();
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ContactPanel.this,
+                                "Lỗi thêm: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }.execute();
         }
     }
 
+    private void enterSelectionMode() {
+        if (isSelectionMode)
+            return;
+        isSelectionMode = true;
+        contactTable.getColumnModel().addColumn(checkboxColumn);
+        contactTable.getColumnModel().moveColumn(contactTable.getColumnCount() - 1, 0);
+        selectBtn.setVisible(true);
+        cancelSelectBtn.setVisible(true);
+        editBtn.setVisible(false);
+        contactTable.clearSelection();
+    }
+
+    private void exitSelectionMode() {
+        if (!isSelectionMode)
+            return;
+        isSelectionMode = false;
+        contactTable.getColumnModel().removeColumn(checkboxColumn);
+        selectBtn.setVisible(false);
+        cancelSelectBtn.setVisible(false);
+        editBtn.setVisible(true);
+        for (int i = 0; i < tableModel.getRowCount(); i++)
+            tableModel.setValueAt(false, i, 0);
+        contactTable.clearSelection();
+    }
+
+    private List<Contact> getSelectedContacts() {
+        List<Contact> selected = new ArrayList<>();
+        int start = (currentPage - 1) * pageSize;
+        if (isSelectionMode) {
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                if (Boolean.TRUE.equals(tableModel.getValueAt(i, 0))) {
+                    int index = start + i;
+                    if (index >= 0 && index < currentContacts.size()) {
+                        selected.add(currentContacts.get(index));
+                    }
+                }
+            }
+        } else {
+            int[] rows = contactTable.getSelectedRows();
+            for (int r : rows) {
+                int index = start + r;
+                if (index >= 0 && index < currentContacts.size()) {
+                    selected.add(currentContacts.get(index));
+                }
+            }
+        }
+        return selected;
+    }
+
+    private Contact getFirstSelectedContact() {
+        List<Contact> sel = getSelectedContacts();
+        return sel.isEmpty() ? null : sel.get(0);
+    }
+
     private void editSelected() {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) { JOptionPane.showMessageDialog(this, "Vui lòng chọn liên hệ.", "Thông báo", JOptionPane.INFORMATION_MESSAGE); return; }
-        Contact c = currentContacts.get(row);
+        Contact c = getFirstSelectedContact();
+        if (c == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn liên hệ.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
         Window parent = SwingUtilities.getWindowAncestor(this);
         Frame frame = (parent instanceof Frame) ? (Frame) parent : null;
         ContactDialog dlg = new ContactDialog(frame, c);
         dlg.setVisible(true);
         if (dlg.isSaved()) {
             new SwingWorker<Void, Void>() {
-                @Override protected Void doInBackground() throws Exception {
-                    contactService.updateContact(dlg.getContact(), dlg.getCompanyName()); return null;
+                @Override
+                protected Void doInBackground() throws Exception {
+                    contactService.updateContact(dlg.getContact(), dlg.getCompanyName());
+                    return null;
                 }
-                @Override protected void done() {
-                    try { get(); loadContacts(); if (onRefresh != null) onRefresh.run(); }
-                    catch (Exception e) { JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Lỗi cập nhật: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE); }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        loadContacts();
+                        if (onRefresh != null)
+                            onRefresh.run();
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ContactPanel.this,
+                                "Lỗi cập nhật: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }.execute();
         }
     }
 
     private void shareSelected() {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) { JOptionPane.showMessageDialog(this, "Vui lòng chọn liên hệ.", "Thông báo", JOptionPane.INFORMATION_MESSAGE); return; }
-        Contact c = currentContacts.get(row);
+        Contact c = getFirstSelectedContact();
+        if (c == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn liên hệ.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
         Window parent = SwingUtilities.getWindowAncestor(this);
         Frame frame = (parent instanceof Frame) ? (Frame) parent : null;
         QRCodeDialog dlg = new QRCodeDialog(frame, c);
@@ -591,72 +789,126 @@ public class ContactPanel extends JPanel {
     }
 
     private void deleteSelected() {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) return;
-        Contact c = currentContacts.get(row);
-        int ok = JOptionPane.showConfirmDialog(this,
-                "Xóa liên hệ \"" + c.getName() + "\"?", "Xác nhận xóa",
-                JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        List<Contact> selected = getSelectedContacts();
+        if (selected.isEmpty())
+            return;
+
+        String msg = selected.size() == 1
+                ? "Xóa liên hệ \"" + selected.get(0).getName() + "\"?"
+                : "Xóa " + selected.size() + " liên hệ đã chọn?";
+
+        int ok = JOptionPane.showConfirmDialog(this, msg, "Xác nhận xóa", JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
             new SwingWorker<Void, Void>() {
-                @Override protected Void doInBackground() throws Exception {
-                    contactService.deleteContact(c.getId()); return null;
+                @Override
+                protected Void doInBackground() throws Exception {
+                    for (Contact c : selected)
+                        contactService.deleteContact(c.getId());
+                    return null;
                 }
-                @Override protected void done() {
-                    try { get(); loadContacts(); if (onRefresh != null) onRefresh.run(); }
-                    catch (Exception e) { JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Lỗi xóa: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE); }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        loadContacts();
+                        exitSelectionMode();
+                        if (onRefresh != null)
+                            onRefresh.run();
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi xóa: " + e.getMessage(), "Lỗi",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }.execute();
         }
     }
 
     private void restoreSelected() {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) return;
-        Contact c = currentContacts.get(row);
+        List<Contact> selected = getSelectedContacts();
+        if (selected.isEmpty())
+            return;
         new SwingWorker<Void, Void>() {
-            @Override protected Void doInBackground() throws Exception {
-                contactService.restoreContact(c.getId()); return null;
+            @Override
+            protected Void doInBackground() throws Exception {
+                for (Contact c : selected)
+                    contactService.restoreContact(c.getId());
+                return null;
             }
-            @Override protected void done() {
-                try { get(); loadContacts(); if (onRefresh != null) onRefresh.run(); }
-                catch (Exception e) { JOptionPane.showMessageDialog(ContactPanel.this,
-                        "Lỗi khôi phục: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE); }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    loadContacts();
+                    exitSelectionMode();
+                    if (onRefresh != null)
+                        onRefresh.run();
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi khôi phục: " + e.getMessage(), "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
             }
         }.execute();
     }
 
     private void permanentlyDeleteSelected() {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) return;
-        Contact c = currentContacts.get(row);
-        int ok = JOptionPane.showConfirmDialog(this,
-                "Xóa VĨNH VIỄN \"" + c.getName() + "\"?\nHành động không thể hoàn tác.",
-                "Cảnh báo", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+        List<Contact> selected = getSelectedContacts();
+        if (selected.isEmpty())
+            return;
+
+        String msg = selected.size() == 1
+                ? "Xóa VĨNH VIỄN \"" + selected.get(0).getName() + "\"?\nHành động không thể hoàn tác."
+                : "Xóa VĨNH VIỄN " + selected.size() + " liên hệ đã chọn?\nHành động không thể hoàn tác.";
+
+        int ok = JOptionPane.showConfirmDialog(this, msg, "Cảnh báo", JOptionPane.YES_NO_OPTION,
+                JOptionPane.ERROR_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
             new SwingWorker<Void, Void>() {
-                @Override protected Void doInBackground() throws Exception {
-                    contactService.permanentlyDeleteContact(c.getId()); return null;
+                @Override
+                protected Void doInBackground() throws Exception {
+                    for (Contact c : selected)
+                        contactService.permanentlyDeleteContact(c.getId());
+                    return null;
                 }
-                @Override protected void done() {
-                    try { get(); loadContacts(); if (onRefresh != null) onRefresh.run(); }
-                    catch (Exception e) { JOptionPane.showMessageDialog(ContactPanel.this,
-                            "Lỗi: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE); }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        loadContacts();
+                        exitSelectionMode();
+                        if (onRefresh != null)
+                            onRefresh.run();
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi: " + e.getMessage(), "Lỗi",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             }.execute();
         }
     }
 
     private void changeSelectedGroup(int groupId) {
-        int row = contactTable.getSelectedRow();
-        if (row < 0) return;
-        Contact c = currentContacts.get(row);
+        List<Contact> selected = getSelectedContacts();
+        if (selected.isEmpty())
+            return;
         new SwingWorker<Void, Void>() {
-            @Override protected Void doInBackground() throws Exception {
-                contactService.changeGroupById(c, groupId); return null;
+            @Override
+            protected Void doInBackground() throws Exception {
+                for (Contact c : selected)
+                    contactService.changeGroupById(c, groupId);
+                return null;
             }
-            @Override protected void done() { loadContacts(); if (onRefresh != null) onRefresh.run(); }
+
+            @Override
+            protected void done() {
+                loadContacts();
+                exitSelectionMode();
+                if (onRefresh != null)
+                    onRefresh.run();
+            }
         }.execute();
     }
 
@@ -671,7 +923,8 @@ public class ContactPanel extends JPanel {
 
     private void importCsvFile(File file) {
         new SwingWorker<int[], Void>() {
-            @Override protected int[] doInBackground() throws Exception {
+            @Override
+            protected int[] doInBackground() throws Exception {
                 int count = 0;
                 int skipped = 0;
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(
@@ -679,12 +932,16 @@ public class ContactPanel extends JPanel {
                     String line;
                     boolean firstLine = true;
                     while ((line = br.readLine()) != null) {
-                        if (line.trim().isEmpty()) continue;
-                        if (firstLine) { firstLine = false;
-                            if (line.toLowerCase().contains("name") || line.toLowerCase().contains("tên")) continue;
+                        if (line.trim().isEmpty())
+                            continue;
+                        if (firstLine) {
+                            firstLine = false;
+                            if (line.toLowerCase().contains("name") || line.toLowerCase().contains("tên"))
+                                continue;
                         }
                         List<String> parts = parseCsvLine(line);
-                        if (parts.isEmpty()) continue;
+                        if (parts.isEmpty())
+                            continue;
 
                         Contact c = new Contact();
                         c.setName(csvVal(parts, 0));
@@ -702,27 +959,36 @@ public class ContactPanel extends JPanel {
                         if (!c.getName().isEmpty()) {
                             if (!c.getPhone().isEmpty()) {
                                 Contact dup = contactService.findDuplicateByPhone(c.getPhone(), null);
-                                if (dup != null) { skipped++; continue; }
+                                if (dup != null) {
+                                    skipped++;
+                                    continue;
+                                }
                             }
                             contactService.addContact(c, companyName);
                             count++;
                         }
                     }
                 }
-                return new int[]{count, skipped};
+                return new int[] { count, skipped };
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     int[] result = get();
                     int n = result[0];
                     int s = result[1];
                     loadContacts();
-                    if (onRefresh != null) onRefresh.run();
+                    if (onRefresh != null)
+                        onRefresh.run();
                     String msg = "Đã nhập " + n + " liên hệ thành công!";
-                    if (s > 0) msg += "\n⚠ Bỏ qua " + s + " liên hệ do trùng số điện thoại.";
-                    JOptionPane.showMessageDialog(ContactPanel.this, msg, "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    if (s > 0)
+                        msg += "\n⚠ Bỏ qua " + s + " liên hệ do trùng số điện thoại.";
+                    JOptionPane.showMessageDialog(ContactPanel.this, msg, "Thành công",
+                            JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi nhập file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(ContactPanel.this, "Lỗi nhập file: " + e.getMessage(), "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
@@ -749,11 +1015,11 @@ public class ContactPanel extends JPanel {
                             escapeCsv(c.getBirthday()),
                             escapeCsv(c.getNotes()),
                             escapeCsv(getGroupForContact(c)),
-                            escapeCsv(c.getCompanyName())
-                    );
+                            escapeCsv(c.getCompanyName()));
                     pw.println(line);
                 }
-                JOptionPane.showMessageDialog(this, "Export thành công tới " + out.getAbsolutePath(), "Export", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Export thành công tới " + out.getAbsolutePath(), "Export",
+                        JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Lỗi export: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
@@ -762,7 +1028,8 @@ public class ContactPanel extends JPanel {
 
     /** Escape CSV field nếu chứa dấu phẩy hoặc dấu ngoặc kép */
     private String escapeCsv(String value) {
-        if (value == null) return "";
+        if (value == null)
+            return "";
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
@@ -791,19 +1058,23 @@ public class ContactPanel extends JPanel {
 
     /** Đọc giá trị cột an toàn, trả "" nếu vượt index. */
     private String csvVal(List<String> parts, int idx) {
-        if (idx >= parts.size()) return "";
+        if (idx >= parts.size())
+            return "";
         String v = parts.get(idx).trim();
         // Bỏ ngoặc kép bọc ngoài nếu có
-        if (v.startsWith("\"") && v.endsWith("\"")) v = v.substring(1, v.length() - 1);
+        if (v.startsWith("\"") && v.endsWith("\""))
+            v = v.substring(1, v.length() - 1);
         return v;
     }
 
     /** Chuyển dd/MM/yyyy | yyyy-MM-dd sang yyyy-MM-dd (PostgreSQL format). */
     private String convertCsvDate(String date) {
-        if (date == null || date.isBlank()) return "";
+        if (date == null || date.isBlank())
+            return "";
         date = date.trim();
         // Đã đúng format yyyy-MM-dd
-        if (date.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) return date;
+        if (date.matches("\\d{4}-\\d{1,2}-\\d{1,2}"))
+            return date;
         // dd/MM/yyyy
         if (date.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
             String[] p = date.split("/");
@@ -812,18 +1083,34 @@ public class ContactPanel extends JPanel {
         return date;
     }
 
-    private String pad2(String s) { return s.length() == 1 ? "0" + s : s; }
+    private String pad2(String s) {
+        return s.length() == 1 ? "0" + s : s;
+    }
 
     /** Map tên nhóm (FAVORITES, FAMILY, WORK, FRIENDS, OTHER) → group_id (1-5). */
     private int mapGroupId(String g) {
-        if (g == null || g.isBlank()) return 5;
+        if (g == null || g.isBlank())
+            return 5;
         g = g.trim().toUpperCase();
         switch (g) {
-            case "FAVORITES": case "1": case "YÊU THÍCH":   return 1;
-            case "FAMILY":    case "2": case "GIA ĐÌNH":    return 2;
-            case "WORK":      case "3": case "CÔNG VIỆC":   return 3;
-            case "FRIENDS":   case "4": case "BẠN BÈ":      return 4;
-            default:                                         return 5;
+            case "FAVORITES":
+            case "1":
+            case "YÊU THÍCH":
+                return 1;
+            case "FAMILY":
+            case "2":
+            case "GIA ĐÌNH":
+                return 2;
+            case "WORK":
+            case "3":
+            case "CÔNG VIỆC":
+                return 3;
+            case "FRIENDS":
+            case "4":
+            case "BẠN BÈ":
+                return 4;
+            default:
+                return 5;
         }
     }
 
@@ -835,7 +1122,9 @@ public class ContactPanel extends JPanel {
             restore.addActionListener(e -> restoreSelected());
             JMenuItem del = new JMenuItem("Xóa vĩnh viễn");
             del.addActionListener(e -> permanentlyDeleteSelected());
-            menu.add(restore); menu.addSeparator(); menu.add(del);
+            menu.add(restore);
+            menu.addSeparator();
+            menu.add(del);
         } else {
             JMenuItem edit = new JMenuItem("Sửa liên hệ");
             edit.addActionListener(e -> editSelected());
@@ -849,7 +1138,11 @@ public class ContactPanel extends JPanel {
                 gi.addActionListener(e -> changeSelectedGroup(g.getId()));
                 groupMenu.add(gi);
             }
-            menu.add(edit); menu.add(share); menu.add(groupMenu); menu.addSeparator(); menu.add(del);
+            menu.add(edit);
+            menu.add(share);
+            menu.add(groupMenu);
+            menu.addSeparator();
+            menu.add(del);
         }
         return menu;
     }
@@ -861,14 +1154,15 @@ public class ContactPanel extends JPanel {
         int end = Math.min(start + pageSize, currentContacts.size());
         for (int i = start; i < end; i++) {
             Contact c = currentContacts.get(i);
-            tableModel.addRow(new Object[]{
+            tableModel.addRow(new Object[] {
+                    false,
                     i + 1,
-                    c,                                                       // avatar
-                    c,                                                       // name+subtitle
-                    c.getPhone()  != null ? c.getPhone()  : "",
-                    c.getEmail()  != null ? c.getEmail()  : "",
+                    c, // avatar
+                    c, // name+subtitle
+                    c.getPhone() != null ? c.getPhone() : "",
+                    c.getEmail() != null ? c.getEmail() : "",
                     c.getCompanyName() != null ? c.getCompanyName() : "",
-                    getGroupForContact(c),                    c.getCompletionPercent()
+                    getGroupForContact(c), c.getCompletionPercent()
             });
         }
         updatePaginationUI();
@@ -880,28 +1174,32 @@ public class ContactPanel extends JPanel {
 
     private String getGroupForContact(Contact c) {
         for (GroupInfo g : allGroups)
-            if (g.getId() == c.getGroupId()) return g.getDisplayName();
+            if (g.getId() == c.getGroupId())
+                return g.getDisplayName();
         return c.getGroup().toString();
     }
 
     private Color getGroupColorForId(int id) {
         for (GroupInfo g : allGroups)
-            if (g.getId() == id) return g.getColor();
+            if (g.getId() == id)
+                return g.getColor();
         return UIConstants.TEXT_MUTED;
     }
 
     // =========================================================
-    //  CELL RENDERERS
+    // CELL RENDERERS
     // =========================================================
 
     private static class IndexRenderer extends DefaultTableCellRenderer {
-        @Override public Component getTableCellRendererComponent(JTable t, Object v,
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v,
                 boolean sel, boolean foc, int row, int col) {
             super.getTableCellRendererComponent(t, v, sel, foc, row, col);
             setHorizontalAlignment(CENTER);
             setFont(UIConstants.FONT_SMALL);
             setForeground(UIConstants.TEXT_MUTED);
-            if (!sel) setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
+            if (!sel)
+                setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
             setBorder(BorderFactory.createEmptyBorder());
             return this;
         }
@@ -909,13 +1207,18 @@ public class ContactPanel extends JPanel {
 
     private static class AvatarRenderer extends DefaultTableCellRenderer {
         private final Map<String, ImageIcon> cache = new HashMap<>();
-        @Override public Component getTableCellRendererComponent(JTable t, Object v,
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v,
                 boolean sel, boolean foc, int row, int col) {
             super.getTableCellRendererComponent(t, v, sel, foc, row, col);
-            setText(""); setIcon(null);
+            setText("");
+            setIcon(null);
             setHorizontalAlignment(CENTER);
-            if (!sel) setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
-            else setBackground(UIConstants.BG_HOVER);
+            if (!sel)
+                setBackground(row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT);
+            else
+                setBackground(UIConstants.BG_HOVER);
             if (v instanceof Contact) {
                 Contact c = (Contact) v;
                 if (c.getAvatar() != null && !c.getAvatar().isBlank()) {
@@ -924,28 +1227,37 @@ public class ContactPanel extends JPanel {
                     } else {
                         try {
                             byte[] b = java.util.Base64.getDecoder().decode(c.getAvatar());
-                            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(b));
+                            java.awt.image.BufferedImage img = javax.imageio.ImageIO
+                                    .read(new java.io.ByteArrayInputStream(b));
                             if (img != null) {
                                 ImageIcon ic = new ImageIcon(makeCircle(img, 36));
                                 cache.put(c.getId(), ic);
                                 setIcon(ic);
                             }
-                        } catch (Exception ignored) { drawInitial(c); }
+                        } catch (Exception ignored) {
+                            drawInitial(c);
+                        }
                     }
-                } else { drawInitial(c); }
+                } else {
+                    drawInitial(c);
+                }
             }
             setBorder(BorderFactory.createEmptyBorder());
             return this;
         }
+
         private void drawInitial(Contact c) {
             String init = (c.getName() != null && !c.getName().isBlank())
-                    ? String.valueOf(c.getName().trim().charAt(0)).toUpperCase() : "?";
+                    ? String.valueOf(c.getName().trim().charAt(0)).toUpperCase()
+                    : "?";
             setText(init);
             setFont(UIConstants.FONT_SMALL_BOLD);
             setForeground(UIConstants.ACCENT);
         }
+
         private java.awt.image.BufferedImage makeCircle(java.awt.image.BufferedImage img, int size) {
-            java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(size, size,
+                    java.awt.image.BufferedImage.TYPE_INT_ARGB);
             Graphics2D g2 = out.createGraphics();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.fill(new java.awt.geom.Ellipse2D.Float(0, 0, size, size));
@@ -958,7 +1270,8 @@ public class ContactPanel extends JPanel {
 
     private static class NameRenderer extends JPanel implements TableCellRenderer {
         private final JLabel nameLabel = new JLabel();
-        private final JLabel subLabel  = new JLabel();
+        private final JLabel subLabel = new JLabel();
+
         NameRenderer() {
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             setOpaque(true);
@@ -967,15 +1280,19 @@ public class ContactPanel extends JPanel {
             nameLabel.setForeground(UIConstants.TEXT_PRIMARY);
             subLabel.setFont(UIConstants.FONT_SMALL);
             subLabel.setForeground(UIConstants.TEXT_MUTED);
-            add(nameLabel); add(subLabel);
+            add(nameLabel);
+            add(subLabel);
         }
-        @Override public Component getTableCellRendererComponent(JTable t, Object v,
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v,
                 boolean sel, boolean foc, int row, int col) {
             if (v instanceof Contact) {
                 Contact c = (Contact) v;
                 nameLabel.setText(c.getName() != null ? c.getName() : "");
                 String sub = c.getCompanyName() != null && !c.getCompanyName().isBlank()
-                        ? c.getCompanyName() : "";
+                        ? c.getCompanyName()
+                        : "";
                 subLabel.setText(sub);
             }
             setBackground(sel ? UIConstants.BG_HOVER
@@ -985,7 +1302,8 @@ public class ContactPanel extends JPanel {
     }
 
     private class GroupBadgeRenderer extends DefaultTableCellRenderer {
-        @Override public Component getTableCellRendererComponent(JTable t, Object v,
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v,
                 boolean sel, boolean foc, int row, int col) {
             super.getTableCellRendererComponent(t, v, sel, foc, row, col);
             if (row < currentContacts.size()) {
@@ -1007,19 +1325,26 @@ public class ContactPanel extends JPanel {
 
     private static class ProgressBarRenderer extends JPanel implements TableCellRenderer {
         private int pct;
-        ProgressBarRenderer() { setOpaque(true); }
-        @Override public Component getTableCellRendererComponent(JTable t, Object v,
+
+        ProgressBarRenderer() {
+            setOpaque(true);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v,
                 boolean sel, boolean foc, int row, int col) {
             pct = v instanceof Integer ? (Integer) v : 0;
             setBackground(sel ? UIConstants.BG_HOVER
                     : (row % 2 == 0 ? UIConstants.BG_SECONDARY : UIConstants.TABLE_ROW_ALT));
             return this;
         }
-        @Override protected void paintComponent(Graphics g) {
+
+        @Override
+        protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int barW = (int)(getWidth() * 0.60);
+            int barW = (int) (getWidth() * 0.60);
             int barH = 6;
             int x = 10, y = (getHeight() - barH) / 2;
             // track
@@ -1028,7 +1353,7 @@ public class ContactPanel extends JPanel {
             // fill
             Color fill = pct >= 80 ? UIConstants.SUCCESS : pct >= 50 ? UIConstants.WARNING : UIConstants.DANGER;
             g2.setColor(fill);
-            g2.fillRoundRect(x, y, (int)(barW * pct / 100.0), barH, barH, barH);
+            g2.fillRoundRect(x, y, (int) (barW * pct / 100.0), barH, barH, barH);
             // text
             g2.setFont(UIConstants.FONT_SMALL_BOLD);
             g2.setColor(UIConstants.TEXT_SECONDARY);
@@ -1039,14 +1364,14 @@ public class ContactPanel extends JPanel {
     }
 
     // ---------------------------------------------------------------------
-    //  Drag-and-drop row reordering support
+    // Drag-and-drop row reordering support
     // ---------------------------------------------------------------------
     private class TableRowTransferHandler extends TransferHandler {
         private DataFlavor localObjectFlavor;
         private final JTable table;
         private int[] rows = null;
         private int addIndex = -1; // Location where rows were added
-        private int addCount = 0;  // Number of rows added.
+        private int addCount = 0; // Number of rows added.
 
         public TableRowTransferHandler(JTable table) {
             this.table = table;
@@ -1065,10 +1390,20 @@ public class ContactPanel extends JPanel {
                 transfered.add(currentContacts.get(row));
             }
             return new Transferable() {
-                @Override public DataFlavor[] getTransferDataFlavors() { return new DataFlavor[]{localObjectFlavor}; }
-                @Override public boolean isDataFlavorSupported(DataFlavor flavor) { return localObjectFlavor.equals(flavor); }
-                @Override public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
-                    if (isDataFlavorSupported(flavor)) return transfered;
+                @Override
+                public DataFlavor[] getTransferDataFlavors() {
+                    return new DataFlavor[] { localObjectFlavor };
+                }
+
+                @Override
+                public boolean isDataFlavorSupported(DataFlavor flavor) {
+                    return localObjectFlavor.equals(flavor);
+                }
+
+                @Override
+                public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+                    if (isDataFlavorSupported(flavor))
+                        return transfered;
                     throw new UnsupportedFlavorException(flavor);
                 }
             };
@@ -1076,7 +1411,8 @@ public class ContactPanel extends JPanel {
 
         @Override
         public boolean canImport(TransferSupport info) {
-            return info.isDrop() && (info.isDataFlavorSupported(localObjectFlavor) || info.isDataFlavorSupported(DataFlavor.javaFileListFlavor));
+            return info.isDrop() && (info.isDataFlavorSupported(localObjectFlavor)
+                    || info.isDataFlavorSupported(DataFlavor.javaFileListFlavor));
         }
 
         @Override
@@ -1087,26 +1423,30 @@ public class ContactPanel extends JPanel {
         @SuppressWarnings("unchecked")
         @Override
         public boolean importData(TransferSupport info) {
-            if (!canImport(info)) return false;
-            
+            if (!canImport(info))
+                return false;
+
             // Handle file drops
             if (info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
                 try {
-                    List<File> files = (List<File>) info.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!files.isEmpty()) importCsvFile(files.get(0));
+                    List<File> files = (List<File>) info.getTransferable()
+                            .getTransferData(DataFlavor.javaFileListFlavor);
+                    if (!files.isEmpty())
+                        importCsvFile(files.get(0));
                     return true;
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     return false;
                 }
             }
-            
+
             // Handle row reordering
             JTable target = (JTable) info.getComponent();
             JTable.DropLocation dl = (JTable.DropLocation) info.getDropLocation();
             int index = dl.getRow();
             int max = table.getModel().getRowCount();
-            if (index < 0 || index > max) index = max;
+            if (index < 0 || index > max)
+                index = max;
             try {
                 List<Contact> data = (List<Contact>) info.getTransferable().getTransferData(localObjectFlavor);
                 addIndex = index;
@@ -1129,7 +1469,7 @@ public class ContactPanel extends JPanel {
                     }
                 }
                 refreshTable();
-                
+
                 // Update table selections
                 target.getSelectionModel().clearSelection();
                 for (int i = 0; i < addCount; i++) {

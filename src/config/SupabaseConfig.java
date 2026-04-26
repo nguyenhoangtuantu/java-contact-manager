@@ -16,6 +16,8 @@ public class SupabaseConfig {
     // Phiên đăng nhập người dùng
     private String currentUserId;    // UUID từ bảng users
     private String currentUserEmail;
+    private String currentUserDisplayName;
+    private String currentUserAvatar;
 
     private static SupabaseConfig instance;
 
@@ -61,19 +63,34 @@ public class SupabaseConfig {
     public String getSupabaseKey() { return supabaseKey; }
 
     /** Lưu phiên đăng nhập sau khi xác thực thành công. */
-    public void setAuthSession(String userId, String email) {
-        this.currentUserId    = userId;
+    public void setAuthSession(String userId, String email, String displayName, String avatar) {
+        this.currentUserId = userId;
         this.currentUserEmail = email;
+        this.currentUserDisplayName = displayName;
+        this.currentUserAvatar = avatar;
+    }
+
+    public void setAuthSession(String userId, String email) {
+        setAuthSession(userId, email, null, null);
+    }
+    
+    public void updateUserProfile(String displayName, String avatar) {
+        this.currentUserDisplayName = displayName;
+        this.currentUserAvatar = avatar;
     }
 
     /** Xóa phiên đăng nhập (đăng xuất). */
     public void clearAuthSession() {
-        this.currentUserId    = null;
+        this.currentUserId = null;
         this.currentUserEmail = null;
+        this.currentUserDisplayName = null;
+        this.currentUserAvatar = null;
     }
 
-    public String getCurrentUserId()    { return currentUserId; }
+    public String getCurrentUserId() { return currentUserId; }
     public String getCurrentUserEmail() { return currentUserEmail; }
+    public String getCurrentUserDisplayName() { return currentUserDisplayName; }
+    public String getCurrentUserAvatar() { return currentUserAvatar; }
 
     /** Kiểm tra đã đăng nhập chưa. */
     public boolean isLoggedIn() {
