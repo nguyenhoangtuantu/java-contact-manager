@@ -85,7 +85,7 @@ public class CleanupDialog extends JDialog {
         JButton refreshBtn = createButton("Quét lại", UIConstants.ACCENT);
         refreshBtn.addActionListener(e -> loadAllTabs());
 
-        JButton closeBtn = createButton("Đóng", UIConstants.BG_CARD);
+        JButton closeBtn = createButton("Đóng", Color.GRAY);
         closeBtn.addActionListener(e -> dispose());
 
         bottomPanel.add(refreshBtn);
@@ -234,7 +234,7 @@ public class CleanupDialog extends JDialog {
             JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             actionPanel.setOpaque(false);
 
-            JButton selectAllBtn = createButton("Chọn tất cả", UIConstants.BG_CARD);
+            JButton selectAllBtn = createButton("Chọn tất cả", Color.GRAY);
             selectAllBtn.addActionListener(e -> {
                 for (int i = 0; i < model.getRowCount(); i++) {
                     model.setValueAt(true, i, 0);

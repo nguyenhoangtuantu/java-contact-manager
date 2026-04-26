@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     avatar       TEXT,
     security_question TEXT,
     security_answer   TEXT,
-    is_dark_mode      BOOLEAN DEFAULT FALSE
+    is_dark_mode      BOOLEAN DEFAULT FALSE,
+    is_cleanup_reminder BOOLEAN DEFAULT TRUE,
+    is_birthday_reminder BOOLEAN DEFAULT TRUE
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

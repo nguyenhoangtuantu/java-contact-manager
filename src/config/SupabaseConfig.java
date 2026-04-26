@@ -19,7 +19,14 @@ public class SupabaseConfig {
     private String currentUserDisplayName;
     private String currentUserAvatar;
     private boolean currentUserDarkMode;
+    private boolean currentUserCleanupReminder = true;
+    private boolean currentUserBirthdayReminder = true;
     private String currentUserRole;
+
+    // Biến tạm thời để Admin quản lý (impersonate) User
+    private String targetUserId;
+    private String targetUserEmail;
+    private String targetUserDisplayName;
 
     private static SupabaseConfig instance;
 
@@ -65,17 +72,19 @@ public class SupabaseConfig {
     public String getSupabaseKey() { return supabaseKey; }
 
     /** Lưu phiên đăng nhập sau khi xác thực thành công. */
-    public void setAuthSession(String userId, String email, String displayName, String avatar, boolean isDarkMode, String role) {
+    public void setAuthSession(String userId, String email, String displayName, String avatar, boolean isDarkMode, boolean cleanupReminder, boolean birthdayReminder, String role) {
         this.currentUserId = userId;
         this.currentUserEmail = email;
         this.currentUserDisplayName = displayName;
         this.currentUserAvatar = avatar;
         this.currentUserDarkMode = isDarkMode;
+        this.currentUserCleanupReminder = cleanupReminder;
+        this.currentUserBirthdayReminder = birthdayReminder;
         this.currentUserRole = role;
     }
 
     public void setAuthSession(String userId, String email) {
-        setAuthSession(userId, email, null, null, false, "user");
+        setAuthSession(userId, email, null, null, false, true, true, "user");
     }
     
     public void updateUserProfile(String displayName, String avatar) {
@@ -87,6 +96,11 @@ public class SupabaseConfig {
         this.currentUserDarkMode = isDark;
     }
 
+    public void updateUserNotifications(boolean cleanupReminder, boolean birthdayReminder) {
+        this.currentUserCleanupReminder = cleanupReminder;
+        this.currentUserBirthdayReminder = birthdayReminder;
+    }
+
     /** Xóa phiên đăng nhập (đăng xuất). */
     public void clearAuthSession() {
         this.currentUserId = null;
@@ -94,13 +108,32 @@ public class SupabaseConfig {
         this.currentUserDisplayName = null;
         this.currentUserAvatar = null;
         this.currentUserRole = null;
+        clearTargetUser();
     }
 
-    public String getCurrentUserId() { return currentUserId; }
-    public String getCurrentUserEmail() { return currentUserEmail; }
-    public String getCurrentUserDisplayName() { return currentUserDisplayName; }
+    public String getCurrentUserId() { return targetUserId != null ? targetUserId : currentUserId; }
+    public String getCurrentUserEmail() { return targetUserEmail != null ? targetUserEmail : currentUserEmail; }
+    public String getCurrentUserDisplayName() { return targetUserDisplayName != null ? targetUserDisplayName : currentUserDisplayName; }
     public String getCurrentUserAvatar() { return currentUserAvatar; }
+
+    public void setTargetUser(String uid, String email, String dName) {
+        this.targetUserId = uid;
+        this.targetUserEmail = email;
+        this.targetUserDisplayName = dName;
+    }
+
+    public void clearTargetUser() {
+        this.targetUserId = null;
+        this.targetUserEmail = null;
+        this.targetUserDisplayName = null;
+    }
+
+    public boolean isImpersonating() {
+        return targetUserId != null;
+    }
     public boolean isCurrentUserDarkMode() { return currentUserDarkMode; }
+    public boolean isCurrentUserCleanupReminder() { return currentUserCleanupReminder; }
+    public boolean isCurrentUserBirthdayReminder() { return currentUserBirthdayReminder; }
     public String getCurrentUserRole() { return currentUserRole; }
     public boolean isAdmin() { return "admin".equalsIgnoreCase(currentUserRole); }
 

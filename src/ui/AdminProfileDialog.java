@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import util.AvatarUtil;
 
 /**
  * Hồ sơ Admin - Quản lý thông tin & Cá nhân hóa
@@ -79,7 +80,7 @@ public class AdminProfileDialog extends JDialog {
                     String email = config.getCurrentUserEmail();
                     text = (email != null && !email.isEmpty()) ? String.valueOf(email.charAt(0)).toUpperCase() : "A";
                 }
-                util.AvatarUtil.drawAvatar((Graphics2D) g, getWidth(), getHeight(), text, "A");
+                AvatarUtil.drawAvatar((Graphics2D) g, getWidth(), getHeight(), text, "A");
             }
         };
         avatarLabel.setPreferredSize(new Dimension(64, 64));
@@ -311,7 +312,7 @@ public class AdminProfileDialog extends JDialog {
         JCheckBox cleanupNotif = new JCheckBox("Nhắc nhở dọn dẹp định kỳ (Liên hệ trùng lặp, thiếu thông tin)");
         cleanupNotif.setFont(UIConstants.FONT_BODY);
         cleanupNotif.setBackground(UIConstants.BG_PRIMARY);
-        cleanupNotif.setSelected(true);
+        cleanupNotif.setSelected(SupabaseConfig.getInstance().isCurrentUserCleanupReminder());
         cleanupNotif.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(cleanupNotif);
 
@@ -320,7 +321,7 @@ public class AdminProfileDialog extends JDialog {
         JCheckBox birthdayNotif = new JCheckBox("Hiển thị popup nhắc nhở sinh nhật khi mở ứng dụng");
         birthdayNotif.setFont(UIConstants.FONT_BODY);
         birthdayNotif.setBackground(UIConstants.BG_PRIMARY);
-        birthdayNotif.setSelected(true);
+        birthdayNotif.setSelected(SupabaseConfig.getInstance().isCurrentUserBirthdayReminder());
         birthdayNotif.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(birthdayNotif);
 
@@ -338,11 +339,15 @@ public class AdminProfileDialog extends JDialog {
             boolean selectedDark = darkRadio.isSelected();
             boolean currentlyDark = java.util.prefs.Preferences.userRoot().node("contactmanager")
                     .getBoolean("dark_mode", false);
+            
+            boolean selectedCleanup = cleanupNotif.isSelected();
+            boolean selectedBirthday = birthdayNotif.isSelected();
 
             new SwingWorker<Void, Void>() {
                 @Override
                 protected Void doInBackground() throws Exception {
                     SupabaseService.getInstance().updateUserTheme(selectedDark);
+                    SupabaseService.getInstance().updateUserNotifications(selectedCleanup, selectedBirthday);
                     return null;
                 }
 
@@ -447,7 +452,7 @@ public class AdminProfileDialog extends JDialog {
             JFileChooser chooser = new JFileChooser();
             chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                String base64 = util.AvatarUtil.encodeImageToBase64(chooser.getSelectedFile().getAbsolutePath());
+                String base64 = AvatarUtil.encodeImageToBase64(chooser.getSelectedFile().getAbsolutePath());
                 if (base64 != null) {
                     finalAvatar[0] = base64;
                     chooseImageBtn.setText("Đã chọn ảnh mới!");
@@ -596,124 +601,20 @@ public class AdminProfileDialog extends JDialog {
         }
     }
 
-    private JPanel logout() {
+    private void logout() {
         int ok = JOptionPane.showConfirmDialog(this,
                 "Bạn có chắc chắn muốn đăng xuất?", "Đăng xuất", JOptionPane.YES_NO_OPTION);
         if (ok == JOptionPane.YES_OPTION) {
             SupabaseConfig.getInstance().clearAuthSession();
             dispose();
-            parentFrame.setVisible(false);
-            parentFrame.dispose();
+            if (parentFrame != null) {
+                parentFrame.setVisible(false);
+                parentFrame.dispose();
+            }
             LoginFrame login = new LoginFrame();
-            if (login.checkSupabaseConfig())
+            if (login.checkSupabaseConfig()) {
                 login.setVisible(true);
-        }
-        JPanel p = new JPanel(new BorderLayout(10, 10));
-        p.setBackground(UIConstants.BG_PRIMARY);
-        p.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        JLabel title = new JLabel("Quản lý tài khoản người dùng");
-        title.setFont(UIConstants.FONT_TITLE);
-        title.setForeground(UIConstants.TEXT_PRIMARY);
-        p.add(title, BorderLayout.NORTH);
-
-        JPanel listPanel = new JPanel();
-        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
-        listPanel.setBackground(UIConstants.BG_PRIMARY);
-
-        JScrollPane scroll = new JScrollPane(listPanel);
-        scroll.setBorder(null);
-        scroll.getViewport().setBackground(UIConstants.BG_PRIMARY);
-        p.add(scroll, BorderLayout.CENTER);
-
-        // Load danh sách người dùng
-        new SwingWorker<com.google.gson.JsonArray, Void>() {
-            @Override
-            protected com.google.gson.JsonArray doInBackground() throws Exception {
-                return SupabaseService.getInstance().getAllUsers();
             }
-
-            @Override
-            protected void done() {
-                try {
-                    com.google.gson.JsonArray users = get();
-                    listPanel.removeAll();
-                    for (com.google.gson.JsonElement el : users) {
-                        com.google.gson.JsonObject u = el.getAsJsonObject();
-                        String uid = getStr(u, "id");
-                        String uEmail = getStr(u, "email");
-                        String uName = getStr(u, "display_name");
-                        String role = getStr(u, "role");
-
-                        JPanel item = new JPanel(new BorderLayout());
-                        item.setBackground(UIConstants.BG_SECONDARY);
-                        item.setBorder(BorderFactory.createCompoundBorder(
-                                BorderFactory.createLineBorder(UIConstants.BORDER, 1, true),
-                                BorderFactory.createEmptyBorder(10, 15, 10, 15)));
-                        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-
-                        String infoStr = uEmail;
-                        if (uName != null && !uName.isBlank())
-                            infoStr = uName + " (" + uEmail + ")";
-                        if ("admin".equals(role))
-                            infoStr += " [ADMIN]";
-
-                        JLabel infoLbl = new JLabel(infoStr);
-                        infoLbl.setFont(UIConstants.FONT_BODY);
-                        infoLbl.setForeground(UIConstants.TEXT_PRIMARY);
-
-                        JButton resetBtn = new JButton("Reset Mật Khẩu");
-                        resetBtn.setFont(UIConstants.FONT_SMALL_BOLD);
-                        resetBtn.setForeground(Color.WHITE);
-                        resetBtn.setBackground(new Color(239, 68, 68)); // Đỏ
-                        resetBtn.setFocusPainted(false);
-                        resetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                        if ("admin".equals(role) && !uid.equals(SupabaseConfig.getInstance().getCurrentUserId())) {
-                            resetBtn.setEnabled(false); // Không reset pass admin khác để an toàn
-                        }
-
-                        resetBtn.addActionListener(e -> {
-                            int ok = JOptionPane.showConfirmDialog(AdminProfileDialog.this,
-                                    "Bạn muốn reset mật khẩu cho " + uEmail + "?", "Xác nhận",
-                                    JOptionPane.YES_NO_OPTION);
-                            if (ok == JOptionPane.YES_OPTION) {
-                                String newPass = "Aa@" + (100000 + new java.util.Random().nextInt(900000));
-                                try {
-                                    SupabaseService.getInstance().adminResetUserPassword(uid, newPass);
-                                    JTextArea ta = new JTextArea("Đã reset mật khẩu thành công!\n\nMật khẩu mới: "
-                                            + newPass + "\n\nHãy copy và gửi cho họ.");
-                                    ta.setEditable(false);
-                                    JOptionPane.showMessageDialog(AdminProfileDialog.this, ta, "Thành công",
-                                            JOptionPane.INFORMATION_MESSAGE);
-                                } catch (Exception ex) {
-                                    JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi: " + ex.getMessage(),
-                                            "Lỗi", JOptionPane.ERROR_MESSAGE);
-                                }
-                            }
-                        });
-
-                        item.add(infoLbl, BorderLayout.CENTER);
-                        item.add(resetBtn, BorderLayout.EAST);
-                        listPanel.add(item);
-                        listPanel.add(Box.createVerticalStrut(10));
-                    }
-                    listPanel.revalidate();
-                    listPanel.repaint();
-                } catch (Exception ex) {
-                    JLabel err = new JLabel("Lỗi tải danh sách: " + ex.getMessage());
-                    err.setForeground(Color.RED);
-                    listPanel.add(err);
-                }
-            }
-        }.execute();
-
-        return p;
-    }
-
-    private String getStr(com.google.gson.JsonObject obj, String key) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
-            return obj.get(key).getAsString();
         }
-        return null;
     }
 }

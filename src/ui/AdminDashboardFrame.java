@@ -11,6 +11,8 @@ import java.awt.event.MouseEvent;
 public class AdminDashboardFrame extends JFrame {
 
     private JPanel listPanel;
+    private JTextField searchField;
+    private JLabel totalUsersLabel;
 
     public AdminDashboardFrame() {
         setTitle("Admin Dashboard - Quản lý Hệ thống");
@@ -84,11 +86,40 @@ public class AdminDashboardFrame extends JFrame {
         content.setBackground(UIConstants.BG_PRIMARY);
         content.setBorder(BorderFactory.createEmptyBorder(30, 40, 30, 40));
 
+        JPanel topHeader = new JPanel(new BorderLayout(10, 0));
+        topHeader.setBackground(UIConstants.BG_PRIMARY);
+        topHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+
         JLabel title = new JLabel("Danh sách tài khoản");
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(UIConstants.TEXT_PRIMARY);
-        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        content.add(title, BorderLayout.NORTH);
+        topHeader.add(title, BorderLayout.WEST);
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        searchPanel.setOpaque(false);
+
+        totalUsersLabel = new JLabel("Tổng: 0");
+        totalUsersLabel.setFont(UIConstants.FONT_SMALL_BOLD);
+        totalUsersLabel.setForeground(UIConstants.TEXT_MUTED);
+        searchPanel.add(totalUsersLabel);
+
+        searchField = new JTextField();
+        searchField.setPreferredSize(new Dimension(250, 32));
+        searchField.setFont(UIConstants.FONT_BODY);
+        searchField.putClientProperty("JTextField.placeholderText", "Tìm tên, email...");
+        searchField.addActionListener(e -> loadUsers());
+
+        JButton searchBtn = new JButton("Tìm kiếm");
+        searchBtn.setBackground(UIConstants.ACCENT);
+        searchBtn.setForeground(Color.WHITE);
+        searchBtn.setFocusPainted(false);
+        searchBtn.addActionListener(e -> loadUsers());
+
+        searchPanel.add(searchField);
+        searchPanel.add(searchBtn);
+
+        topHeader.add(searchPanel, BorderLayout.EAST);
+        content.add(topHeader, BorderLayout.NORTH);
 
         listPanel = new JPanel();
         listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
@@ -116,6 +147,7 @@ public class AdminDashboardFrame extends JFrame {
     }
 
     private void loadUsers() {
+        String keyword = searchField != null ? searchField.getText() : "";
         listPanel.removeAll();
         JLabel loading = new JLabel("Đang tải dữ liệu...");
         loading.setForeground(UIConstants.TEXT_MUTED);
@@ -126,13 +158,16 @@ public class AdminDashboardFrame extends JFrame {
         new SwingWorker<com.google.gson.JsonArray, Void>() {
             @Override
             protected com.google.gson.JsonArray doInBackground() throws Exception {
-                return SupabaseService.getInstance().getAllUsers();
+                return SupabaseService.getInstance().getAllUsers(keyword);
             }
 
             @Override
             protected void done() {
                 try {
                     com.google.gson.JsonArray users = get();
+                    if (totalUsersLabel != null) {
+                        totalUsersLabel.setText("Tổng: " + users.size());
+                    }
                     listPanel.removeAll();
                     for (com.google.gson.JsonElement el : users) {
                         com.google.gson.JsonObject u = el.getAsJsonObject();
@@ -148,9 +183,9 @@ public class AdminDashboardFrame extends JFrame {
                                 BorderFactory.createEmptyBorder(15, 20, 15, 20)));
                         item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
 
-                        String infoStr = uEmail;
-                        if (uName != null && !uName.isBlank())
-                            infoStr = uName + " (" + uEmail + ")";
+                        final String infoStr = (uName != null && !uName.isBlank()) 
+                                ? (uName + " (" + uEmail + ")") 
+                                : uEmail;
 
                         JPanel infoWrap = new JPanel(new GridLayout(2, 1, 0, 5));
                         infoWrap.setOpaque(false);
@@ -173,11 +208,37 @@ public class AdminDashboardFrame extends JFrame {
                         resetBtn.setBackground(new Color(239, 68, 68));
                         resetBtn.setFocusPainted(false);
                         resetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                        if ("admin".equals(role) && !uid.equals(SupabaseConfig.getInstance().getCurrentUserId())) {
-                            resetBtn.setEnabled(false);
+                        if ("admin".equals(role)) {
+                            resetBtn.setVisible(false);
                         }
 
                         resetBtn.addActionListener(e -> resetPasswordFor(uid, uEmail));
+
+                        item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                        item.addMouseListener(new MouseAdapter() {
+                            @Override
+                            public void mouseClicked(MouseEvent e) {
+                                if (e.getClickCount() == 2) {
+                                    if ("admin".equals(role)) {
+                                        JOptionPane.showMessageDialog(AdminDashboardFrame.this, "Không thể chỉnh sửa danh bạ của Quản trị viên.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                                        return;
+                                    }
+                                    SupabaseConfig.getInstance().setTargetUser(uid, uEmail, uName);
+                                    MainFrame mf = new MainFrame();
+                                    mf.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                                    mf.setTitle("Đang quản lý danh bạ của: " + infoStr);
+                                    mf.addWindowListener(new java.awt.event.WindowAdapter() {
+                                        @Override
+                                        public void windowClosed(java.awt.event.WindowEvent windowEvent) {
+                                            SupabaseConfig.getInstance().clearTargetUser();
+                                            AdminDashboardFrame.this.setVisible(true);
+                                        }
+                                    });
+                                    AdminDashboardFrame.this.setVisible(false);
+                                    mf.setVisible(true);
+                                }
+                            }
+                        });
 
                         item.add(infoWrap, BorderLayout.CENTER);
                         item.add(resetBtn, BorderLayout.EAST);
@@ -203,7 +264,7 @@ public class AdminDashboardFrame extends JFrame {
                 "Bạn có chắc muốn tự động tạo mật khẩu mới cho tài khoản " + email + "?",
                 "Xác nhận Reset", JOptionPane.YES_NO_OPTION);
         if (ok == JOptionPane.YES_OPTION) {
-            String newPass = "Aa@" + (100000 + new java.util.Random().nextInt(900000));
+            String newPass = "Tuantu@" + (100000 + new java.util.Random().nextInt(900000));
             try {
                 SupabaseService.getInstance().adminResetUserPassword(uid, newPass);
                 JTextArea ta = new JTextArea(

@@ -12,6 +12,7 @@ import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import util.AvatarUtil;
 
 /**
  * Cửa sổ chính — sidebar trắng bên trái, nội dung bên phải.
@@ -34,7 +35,12 @@ public class MainFrame extends JFrame {
         initComponents();
         contactPanel.loadContacts();
         refreshGroupList();
-        checkUpcomingBirthdays();
+        if (SupabaseConfig.getInstance().isCurrentUserBirthdayReminder()) {
+            checkUpcomingBirthdays();
+        }
+        if (SupabaseConfig.getInstance().isCurrentUserCleanupReminder()) {
+            checkPeriodicCleanup();
+        }
     }
 
     private void initComponents() {
@@ -169,7 +175,27 @@ public class MainFrame extends JFrame {
         nav.add(Box.createVerticalGlue());
 
         sidebar.add(nav, BorderLayout.CENTER);
-        sidebar.add(createUserPanel(), BorderLayout.SOUTH);
+        
+        JPanel bottomWrap = new JPanel(new BorderLayout());
+        bottomWrap.setOpaque(false);
+        
+        if (SupabaseConfig.getInstance().isImpersonating()) {
+            JButton backBtn = new JButton("⬅ Quay lại Admin Dashboard");
+            backBtn.setBackground(new Color(239, 68, 68)); // Red color
+            backBtn.setForeground(Color.WHITE);
+            backBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+            backBtn.setFocusPainted(false);
+            backBtn.setBorderPainted(false);
+            backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            backBtn.setPreferredSize(new Dimension(Integer.MAX_VALUE, 40));
+            backBtn.addActionListener(e -> {
+                dispose(); // Closes the window and triggers windowClosed event
+            });
+            bottomWrap.add(backBtn, BorderLayout.NORTH);
+        }
+        
+        bottomWrap.add(createUserPanel(), BorderLayout.SOUTH);
+        sidebar.add(bottomWrap, BorderLayout.SOUTH);
         return sidebar;
     }
 
@@ -249,6 +275,9 @@ public class MainFrame extends JFrame {
                 try {
                     get();
                     groups = loaded;
+                    if (contactPanel != null) {
+                        contactPanel.setAllGroups(groups);
+                    }
                     groupListPanel.removeAll();
                     for (GroupInfo g : groups) {
                         int cnt = counts != null ? counts.getOrDefault(g.getId(), 0) : 0;
@@ -377,7 +406,7 @@ public class MainFrame extends JFrame {
         // Avatar circle
         JLabel avatar = new JLabel(displayIcon) {
             @Override protected void paintComponent(Graphics g) {
-                util.AvatarUtil.drawAvatar((Graphics2D) g, getWidth(), getHeight(), getText(), "U");
+                AvatarUtil.drawAvatar((Graphics2D) g, getWidth(), getHeight(), getText(), "U");
             }
         };
         avatar.setPreferredSize(new Dimension(30, 30));
@@ -436,36 +465,99 @@ public class MainFrame extends JFrame {
     private void showAddGroupDialog() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setPreferredSize(new Dimension(380, 220));
+        panel.setPreferredSize(new Dimension(380, 260));
 
-        JTextField nameField  = new JTextField();
-        JTextField iconField  = new JTextField("📌");
-        JTextField colorField = new JTextField("#FF6B6B");
-        JTextField descField  = new JTextField();
+        // --- Auto Icon ---
+        java.util.Set<String> usedIcons = groups.stream()
+                .map(GroupInfo::getIcon)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        String[] emojiList = {"📌", "⭐", "📁", "🔥", "💎", "💡", "🚀", "🎉", "📚", "🎨", "🏆", "🌟", "💼", "🏢", "🏠", "🌍", "🌈", "🎵", "🎁", "☕"};
+        String selectedIcon = emojiList[0];
+        for (String em : emojiList) {
+            if (!usedIcons.contains(em)) {
+                selectedIcon = em;
+                break;
+            }
+        }
+        final String finalIcon = selectedIcon;
 
-        String[][] fields = {{"Tên nhóm *", ""}, {"Icon (emoji)", "📌"}, {"Màu (hex)", "#FF6B6B"}, {"Mô tả", ""}};
-        JTextField[] tfs = {nameField, iconField, colorField, descField};
-        for (int i = 0; i < fields.length; i++) {
-            JLabel lbl = new JLabel(fields[i][0]);
-            lbl.setFont(UIConstants.FONT_SMALL);
-            panel.add(lbl);
-            panel.add(Box.createVerticalStrut(2));
-            tfs[i].setText(fields[i][1]);
-            tfs[i].setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            panel.add(tfs[i]);
-            panel.add(Box.createVerticalStrut(8));
+        // --- Fields ---
+        JTextField nameField = new JTextField();
+        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        
+        JTextField descField = new JTextField();
+        descField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+
+        // Selected color state
+        final String[] selectedColor = {"#FF6B6B"};
+
+        JLabel previewDot = new JLabel("● Nhóm mới");
+        previewDot.setForeground(Color.decode(selectedColor[0]));
+
+        // --- Color Palette Panel ---
+        JPanel colorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        colorPanel.setOpaque(false);
+        String[] palette = {"#FF6B6B", "#4ECDC4", "#45B7D1", "#FDCB6E", "#6C5CE7", "#A8E6CF", "#FF8ED4", "#54A0FF", "#00B894", "#E17055"};
+        
+        List<JPanel> colorBtns = new ArrayList<>();
+        
+        for (String hex : palette) {
+            JPanel btn = new JPanel();
+            btn.setPreferredSize(new Dimension(24, 24));
+            btn.setBackground(Color.decode(hex));
+            btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            btn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+            if (hex.equals(selectedColor[0])) {
+                btn.setBorder(BorderFactory.createLineBorder(UIConstants.TEXT_PRIMARY, 2));
+            }
+            btn.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    selectedColor[0] = hex;
+                    for (JPanel b : colorBtns) b.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+                    btn.setBorder(BorderFactory.createLineBorder(UIConstants.TEXT_PRIMARY, 2));
+                    previewDot.setForeground(Color.decode(hex));
+                }
+            });
+            colorBtns.add(btn);
+            colorPanel.add(btn);
         }
 
+        // --- Add to panel ---
+        JLabel nameLbl = new JLabel("Tên nhóm *");
+        nameLbl.setFont(UIConstants.FONT_SMALL);
+        panel.add(nameLbl);
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(nameField);
+        panel.add(Box.createVerticalStrut(12));
+
+        JLabel descLbl = new JLabel("Mô tả");
+        descLbl.setFont(UIConstants.FONT_SMALL);
+        panel.add(descLbl);
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(descField);
+        panel.add(Box.createVerticalStrut(12));
+
+        JLabel colorLbl = new JLabel("Chọn màu:");
+        colorLbl.setFont(UIConstants.FONT_SMALL);
+        panel.add(colorLbl);
+        panel.add(Box.createVerticalStrut(4));
+        
+        JPanel colorWrap = new JPanel(new BorderLayout());
+        colorWrap.setOpaque(false);
+        colorWrap.add(colorPanel, BorderLayout.WEST);
+        colorWrap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+        panel.add(colorWrap);
+        
+        panel.add(Box.createVerticalStrut(12));
+
         JPanel preview = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel previewDot = new JLabel("● Nhóm mới");
-        previewDot.setForeground(Color.decode("#FF6B6B"));
-        preview.add(new JLabel("Xem trước: "));
+        preview.setOpaque(false);
+        preview.add(new JLabel("Xem trước: " + finalIcon + " "));
         preview.add(previewDot);
         panel.add(preview);
 
-        colorField.addCaretListener(e -> {
-            try { previewDot.setForeground(Color.decode(colorField.getText().trim())); } catch (Exception ignored) {}
-        });
         nameField.addCaretListener(e ->
             previewDot.setText("● " + (nameField.getText().isEmpty() ? "Nhóm mới" : nameField.getText())));
 
@@ -474,7 +566,7 @@ public class MainFrame extends JFrame {
         if (res == JOptionPane.OK_OPTION) {
             String dn = nameField.getText().trim();
             if (dn.isEmpty()) { JOptionPane.showMessageDialog(this, "Vui lòng nhập tên nhóm!", "Lỗi", JOptionPane.WARNING_MESSAGE); return; }
-            GroupInfo ng = new GroupInfo(dn, iconField.getText().trim(), colorField.getText().trim());
+            GroupInfo ng = new GroupInfo(dn, finalIcon, selectedColor[0]);
             ng.setDescription(descField.getText().trim());
             new SwingWorker<Void, Void>() {
                 @Override protected Void doInBackground() throws Exception {
@@ -511,6 +603,40 @@ public class MainFrame extends JFrame {
                         JTextArea ta = new JTextArea(sb.toString());
                         ta.setEditable(false); ta.setOpaque(false); ta.setFont(UIConstants.FONT_BODY);
                         JOptionPane.showMessageDialog(MainFrame.this, ta, "🎉 Nhắc nhở Sinh nhật", JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }.execute();
+    }
+
+    // ── CLEANUP CHECK ────────────────────────────────────
+    private void checkPeriodicCleanup() {
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() throws Exception {
+                List<model.Contact> all = ContactService.getInstance().getAllContacts();
+                int missingCount = 0;
+                for (model.Contact c : all) {
+                    if (c.getPhone() == null || c.getPhone().isBlank() || c.getEmail() == null || c.getEmail().isBlank()) {
+                        missingCount++;
+                    }
+                }
+                return missingCount > 0;
+            }
+            @Override protected void done() {
+                try {
+                    boolean needsCleanup = get();
+                    if (needsCleanup) {
+                        int res = JOptionPane.showConfirmDialog(MainFrame.this, 
+                                "Có liên hệ thiếu thông tin hoặc trùng lặp.\nBạn có muốn mở công cụ dọn dẹp không?", 
+                                "Nhắc nhở dọn dẹp định kỳ", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                        if (res == JOptionPane.YES_OPTION) {
+                            CleanupDialog dlg = new CleanupDialog(MainFrame.this);
+                            dlg.setVisible(true);
+                            if (dlg.isChanged()) { 
+                                contactPanel.loadContacts(); 
+                                refreshGroupList(); 
+                            }
+                        }
                     }
                 } catch (Exception ignored) {}
             }

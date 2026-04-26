@@ -525,11 +525,13 @@ public class ContactPanel extends JPanel {
             titleLabel.setText("Thùng rác");
             addBtn.setVisible(false);
             editBtn.setText("KHÔI PHỤC");
+            editBtn.setForeground(UIConstants.SUCCESS);
             deleteBtn.setText("XÓA VĨNH VIỄN");
         } else {
             titleLabel.setText("Danh bạ");
             addBtn.setVisible(true);
             editBtn.setText("SỬA");
+            editBtn.setForeground(UIConstants.TEXT_SECONDARY);
             deleteBtn.setText("XÓA");
         }
         loadContacts();
@@ -543,6 +545,7 @@ public class ContactPanel extends JPanel {
         this.isTrashMode = false;
         addBtn.setVisible(true);
         editBtn.setText("SỬA");
+        editBtn.setForeground(UIConstants.TEXT_SECONDARY);
         deleteBtn.setText("XÓA");
     }
 
@@ -651,7 +654,11 @@ public class ContactPanel extends JPanel {
         contactTable.getColumnModel().moveColumn(contactTable.getColumnCount() - 1, 0);
         selectBtn.setVisible(true);
         cancelSelectBtn.setVisible(true);
-        editBtn.setVisible(false);
+        if (isTrashMode) {
+            editBtn.setVisible(true);
+        } else {
+            editBtn.setVisible(false);
+        }
         contactTable.clearSelection();
     }
 
@@ -1127,17 +1134,43 @@ public class ContactPanel extends JPanel {
         statusLabel.setText("TỔNG: " + currentContacts.size() + " LIÊN HỆ");
     }
 
+    public void setAllGroups(List<GroupInfo> groups) {
+        this.allGroups = groups;
+        if (currentContacts != null && !currentContacts.isEmpty()) {
+            refreshTable();
+        }
+    }
+
     private String getGroupForContact(Contact c) {
-        for (GroupInfo g : allGroups)
-            if (g.getId() == c.getGroupId())
-                return g.getDisplayName();
+        if (c.getContactGroupName() != null && !c.getContactGroupName().isBlank()) {
+            return c.getContactGroupName();
+        }
+        if (allGroups != null) {
+            for (GroupInfo g : allGroups) {
+                if (g.getId() == c.getGroupId()) {
+                    return g.getDisplayName();
+                }
+            }
+        }
         return c.getGroup().toString();
     }
 
     private Color getGroupColorForId(int id) {
-        for (GroupInfo g : allGroups)
-            if (g.getId() == id)
-                return g.getColor();
+        if (allGroups != null) {
+            for (GroupInfo g : allGroups) {
+                if (g.getId() == id) {
+                    return g.getColor();
+                }
+            }
+        }
+        // Fallback colors for default groups if not loaded yet
+        switch (id) {
+            case 1: return Color.decode("#FF4B4B");
+            case 2: return Color.decode("#20B2AA");
+            case 3: return Color.decode("#4169E1");
+            case 4: return Color.decode("#FF8C00");
+            case 5: return UIConstants.TEXT_MUTED;
+        }
         return UIConstants.TEXT_MUTED;
     }
 
