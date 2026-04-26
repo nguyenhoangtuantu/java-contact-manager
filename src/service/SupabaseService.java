@@ -48,7 +48,7 @@ public class SupabaseService {
     public boolean loginUser(String email, String password) throws Exception {
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
         // Lưu ý: Cần chạy file migration_user_avatar.sql trên Supabase trước để thêm cột avatar
-        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar";
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar,is_dark_mode";
 
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -72,12 +72,15 @@ public class SupabaseService {
             throw new Exception("Mật khẩu không chính xác!");
         }
 
-        // Đọc thêm thông tin hồ sơ
         String dName = getStr(user, "display_name");
         String avatar = getStr(user, "avatar");
+        boolean isDarkMode = false;
+        if (user.has("is_dark_mode") && !user.get("is_dark_mode").isJsonNull()) {
+            isDarkMode = user.get("is_dark_mode").getAsBoolean();
+        }
 
         // Lưu phiên đăng nhập
-        config.setAuthSession(user.get("id").getAsString(), email, dName, avatar);
+        config.setAuthSession(user.get("id").getAsString(), email, dName, avatar, isDarkMode);
         return true;
     }
 
@@ -286,6 +289,34 @@ public class SupabaseService {
 
         // Cập nhật session tại client
         config.updateUserProfile(displayName, avatarUrl);
+        return true;
+    }
+
+    /**
+     * Cập nhật giao diện (Dark/Light mode).
+     */
+    public boolean updateUserTheme(boolean isDarkMode) throws Exception {
+        String userId = config.getCurrentUserId();
+        if (userId == null) throw new Exception("Không tìm thấy thông tin phiên đăng nhập!");
+
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("is_dark_mode", isDarkMode);
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Cập nhật giao diện thất bại: " + updateRes.body());
+        }
+
+        config.updateUserTheme(isDarkMode);
         return true;
     }
 

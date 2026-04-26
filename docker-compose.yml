@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: contact_manager_db
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: contact_manager
+      POSTGRES_USER: postgres
+    volumes:
+      - ./docker/db:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: contact_manager_api
+    environment:
+      PGRST_DB_URI: postgres://postgres:mysecretpassword@db:5432/contact_manager
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_JWT_SECRET: "mysecretjwtsecretthatisatleast32characterslong"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  pgdata:

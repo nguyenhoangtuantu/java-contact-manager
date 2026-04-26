@@ -332,29 +332,48 @@ public class AdminProfileDialog extends JDialog {
         saveBtn.addActionListener(e -> {
             boolean selectedDark = darkRadio.isSelected();
             boolean currentlyDark = java.util.prefs.Preferences.userRoot().node("contactmanager").getBoolean("dark_mode", false);
-            java.util.prefs.Preferences.userRoot().node("contactmanager").putBoolean("dark_mode", selectedDark);
             
-            if (selectedDark != currentlyDark) {
-                int res = JOptionPane.showConfirmDialog(this, "Đã lưu cài đặt! Ứng dụng cần tải lại để thay đổi giao diện. Tải lại ngay?", "Thành công", JOptionPane.YES_NO_OPTION);
-                if (res == JOptionPane.YES_OPTION) {
-                    if (selectedDark) {
-                        try { com.formdev.flatlaf.FlatDarkLaf.setup(); } catch(Exception ignored){}
-                    } else {
-                        try { com.formdev.flatlaf.FlatLightLaf.setup(); } catch(Exception ignored){}
-                    }
-                    ui.UIConstants.applyTheme(selectedDark);
-                    
-                    if (parentFrame != null) {
-                        parentFrame.setVisible(false);
-                        parentFrame.dispose();
-                    }
-                    this.dispose();
-                    MainFrame newFrame = new MainFrame();
-                    newFrame.setVisible(true);
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    SupabaseService.getInstance().updateUserTheme(selectedDark);
+                    return null;
                 }
-            } else {
-                JOptionPane.showMessageDialog(this, "Đã lưu cài đặt cá nhân hóa!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            }
+
+                @Override
+                protected void done() {
+                    try {
+                        get(); // throw exception if doInBackground failed
+                        java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node("contactmanager");
+                        prefs.putBoolean("dark_mode", selectedDark);
+                        prefs.flush();
+                        
+                        if (selectedDark != currentlyDark) {
+                            int res = JOptionPane.showConfirmDialog(AdminProfileDialog.this, "Đã lưu cài đặt! Ứng dụng cần tải lại để thay đổi giao diện. Tải lại ngay?", "Thành công", JOptionPane.YES_NO_OPTION);
+                            if (res == JOptionPane.YES_OPTION) {
+                                if (selectedDark) {
+                                    try { com.formdev.flatlaf.FlatDarkLaf.setup(); } catch(Exception ignored){}
+                                } else {
+                                    try { com.formdev.flatlaf.FlatLightLaf.setup(); } catch(Exception ignored){}
+                                }
+                                ui.UIConstants.applyTheme(selectedDark);
+                                
+                                if (parentFrame != null) {
+                                    parentFrame.setVisible(false);
+                                    parentFrame.dispose();
+                                }
+                                AdminProfileDialog.this.dispose();
+                                MainFrame newFrame = new MainFrame();
+                                newFrame.setVisible(true);
+                            }
+                        } else {
+                            JOptionPane.showMessageDialog(AdminProfileDialog.this, "Đã lưu cài đặt cá nhân hóa!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        }
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi cập nhật giao diện: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }.execute();
         });
         
         panel.add(Box.createVerticalStrut(20));

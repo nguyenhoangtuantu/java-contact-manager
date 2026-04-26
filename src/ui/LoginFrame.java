@@ -384,7 +384,7 @@ public class LoginFrame extends JFrame {
                         lStatusLabel.setText("✓  Đăng nhập thành công!");
                         lStatusLabel.setForeground(new Color(50, 180, 100));
                         lPassField.setText(""); // #13: xóa password sau khi thành công
-                        Timer t = new Timer(350, e -> { dispose(); new MainFrame().setVisible(true); });
+                        Timer t = new Timer(350, e -> applyUserThemeAndStart());
                         t.setRepeats(false); t.start();
                     }
                 } catch (Exception ex) {
@@ -437,7 +437,7 @@ public class LoginFrame extends JFrame {
                     if (get()) {
                         setRStatus("✓  Tài khoản đã được tạo!", new Color(80, 210, 120));
                         rPassField.setText(""); rConfirmField.setText(""); // #13
-                        Timer t = new Timer(350, e -> { dispose(); new MainFrame().setVisible(true); });
+                        Timer t = new Timer(350, e -> applyUserThemeAndStart());
                         t.setRepeats(false); t.start();
                     }
                 } catch (Exception ex) {
@@ -449,6 +449,26 @@ public class LoginFrame extends JFrame {
                 }
             }
         }.execute();
+    }
+
+    private void applyUserThemeAndStart() {
+        boolean isDark = SupabaseConfig.getInstance().isCurrentUserDarkMode();
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node("contactmanager");
+            prefs.putBoolean("dark_mode", isDark);
+            prefs.flush();
+        } catch (Exception ignored) {}
+        try {
+            if (isDark) {
+                com.formdev.flatlaf.FlatDarkLaf.setup();
+            } else {
+                com.formdev.flatlaf.FlatLightLaf.setup();
+            }
+            ui.UIConstants.applyTheme(isDark);
+        } catch (Exception e) {}
+        
+        dispose();
+        new MainFrame().setVisible(true);
     }
 
     private void setRStatus(String msg, Color c) {

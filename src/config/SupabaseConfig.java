@@ -18,6 +18,7 @@ public class SupabaseConfig {
     private String currentUserEmail;
     private String currentUserDisplayName;
     private String currentUserAvatar;
+    private boolean currentUserDarkMode;
 
     private static SupabaseConfig instance;
 
@@ -63,20 +64,25 @@ public class SupabaseConfig {
     public String getSupabaseKey() { return supabaseKey; }
 
     /** Lưu phiên đăng nhập sau khi xác thực thành công. */
-    public void setAuthSession(String userId, String email, String displayName, String avatar) {
+    public void setAuthSession(String userId, String email, String displayName, String avatar, boolean isDarkMode) {
         this.currentUserId = userId;
         this.currentUserEmail = email;
         this.currentUserDisplayName = displayName;
         this.currentUserAvatar = avatar;
+        this.currentUserDarkMode = isDarkMode;
     }
 
     public void setAuthSession(String userId, String email) {
-        setAuthSession(userId, email, null, null);
+        setAuthSession(userId, email, null, null, false);
     }
     
     public void updateUserProfile(String displayName, String avatar) {
         this.currentUserDisplayName = displayName;
         this.currentUserAvatar = avatar;
+    }
+
+    public void updateUserTheme(boolean isDark) {
+        this.currentUserDarkMode = isDark;
     }
 
     /** Xóa phiên đăng nhập (đăng xuất). */
@@ -91,6 +97,7 @@ public class SupabaseConfig {
     public String getCurrentUserEmail() { return currentUserEmail; }
     public String getCurrentUserDisplayName() { return currentUserDisplayName; }
     public String getCurrentUserAvatar() { return currentUserAvatar; }
+    public boolean isCurrentUserDarkMode() { return currentUserDarkMode; }
 
     /** Kiểm tra đã đăng nhập chưa. */
     public boolean isLoggedIn() {
@@ -106,6 +113,9 @@ public class SupabaseConfig {
     public String getRestUrl() {
         if (supabaseUrl == null) return "";
         String url = supabaseUrl.endsWith("/") ? supabaseUrl : supabaseUrl + "/";
-        return url + "rest/v1/";
+        if (url.contains("supabase.co")) {
+            return url + "rest/v1/";
+        }
+        return url; // PostgREST local không dùng /rest/v1/
     }
 }
