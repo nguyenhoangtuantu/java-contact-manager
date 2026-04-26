@@ -36,7 +36,6 @@ public class ContactPanel extends JPanel {
     private final int pageSize = 50; // số bản ghi mỗi trang
     private int currentPage = 1;
     private JPanel paginationPanel;
-    private JComboBox<String> groupFilter;
     private JLabel statusLabel;
     private JLabel titleLabel;
     private JButton addBtn;
@@ -88,14 +87,7 @@ public class ContactPanel extends JPanel {
         titleLabel.setFont(UIConstants.FONT_TITLE);
         titleLabel.setForeground(UIConstants.TEXT_PRIMARY);
 
-        loadGroupFilter();
-        groupFilter = new JComboBox<>(new String[] { "Tất cả" });
-        groupFilter.setFont(UIConstants.FONT_BODY);
-        groupFilter.setPreferredSize(new Dimension(130, 32));
-        groupFilter.addActionListener(e -> filterByGroup());
-
         left.add(titleLabel);
-        left.add(groupFilter);
 
         // RIGHT: search + add
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -532,13 +524,11 @@ public class ContactPanel extends JPanel {
         if (trash) {
             titleLabel.setText("Thùng rác");
             addBtn.setVisible(false);
-            groupFilter.setVisible(false);
             editBtn.setText("KHÔI PHỤC");
             deleteBtn.setText("XÓA VĨNH VIỄN");
         } else {
             titleLabel.setText("Danh bạ");
             addBtn.setVisible(true);
-            groupFilter.setVisible(true);
             editBtn.setText("SỬA");
             deleteBtn.setText("XÓA");
         }
@@ -552,7 +542,6 @@ public class ContactPanel extends JPanel {
     public void resetToNormalMode() {
         this.isTrashMode = false;
         addBtn.setVisible(true);
-        groupFilter.setVisible(true);
         editBtn.setText("SỬA");
         deleteBtn.setText("XÓA");
     }
@@ -624,40 +613,6 @@ public class ContactPanel extends JPanel {
         }.execute();
     }
 
-    private void loadGroupFilter() {
-        new SwingWorker<List<GroupInfo>, Void>() {
-            @Override
-            protected List<GroupInfo> doInBackground() throws Exception {
-                return contactService.getAllGroups();
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    allGroups = get();
-                    if (groupFilter == null)
-                        return;
-                    groupFilter.removeAllItems();
-                    groupFilter.addItem("Tất cả");
-                    for (GroupInfo g : allGroups)
-                        groupFilter.addItem(g.getIcon() + " " + g.getDisplayName());
-                } catch (Exception ignored) {
-                }
-            }
-        }.execute();
-    }
-
-    private void filterByGroup() {
-        int idx = groupFilter.getSelectedIndex();
-        if (idx <= 0) {
-            loadContacts();
-            return;
-        }
-        if (idx - 1 < allGroups.size()) {
-            GroupInfo g = allGroups.get(idx - 1);
-            filterByGroupId(g.getId(), g.getDisplayName());
-        }
-    }
 
     private void showAddDialog() {
         Window parent = SwingUtilities.getWindowAncestor(this);

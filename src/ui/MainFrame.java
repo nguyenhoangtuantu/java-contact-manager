@@ -195,7 +195,7 @@ public class MainFrame extends JFrame {
         btn.setFocusPainted(false);
         btn.setBorderPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
         btn.setBorder(BorderFactory.createEmptyBorder(6, 14, 6, 14));
 
         JLabel iconLbl = new JLabel(emoji);
@@ -203,7 +203,7 @@ public class MainFrame extends JFrame {
         iconLbl.setPreferredSize(new Dimension(22, 22));
         iconLbl.setHorizontalAlignment(SwingConstants.CENTER);
 
-        JLabel textLbl = new JLabel(text);
+        JLabel textLbl = new JLabel("<html><div style='width: 130px;'>" + text + "</div></html>");
         textLbl.setFont(UIConstants.FONT_SIDEBAR);
         textLbl.setForeground(UIConstants.TEXT_SECONDARY);
 

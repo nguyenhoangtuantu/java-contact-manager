@@ -7,8 +7,6 @@ import service.SupabaseService;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -46,7 +44,7 @@ public class AdminProfileDialog extends JDialog {
         tabbedPane.addTab("Cá nhân hóa", createPersonalizationPanel());
 
         add(tabbedPane, BorderLayout.CENTER);
-        
+
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bottomPanel.setBackground(UIConstants.BG_PRIMARY);
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -54,7 +52,7 @@ public class AdminProfileDialog extends JDialog {
         closeBtn.setFont(UIConstants.FONT_BODY);
         closeBtn.addActionListener(e -> dispose());
         bottomPanel.add(closeBtn);
-        
+
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
@@ -144,7 +142,7 @@ public class AdminProfileDialog extends JDialog {
         JButton logoutBtn = createActionButton("Đăng xuất");
         logoutBtn.addActionListener(e -> logout());
         panel.add(logoutBtn);
-        
+
         panel.add(Box.createVerticalStrut(30));
 
         // --- System Statistics ---
@@ -189,20 +187,19 @@ public class AdminProfileDialog extends JDialog {
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(8, 15, 8, 15)
-        ));
+                BorderFactory.createEmptyBorder(8, 15, 8, 15)));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
     }
 
     private JLabel createStatLabel(String title, String value) {
-        JLabel lbl = new JLabel("<html><b>" + title + "</b><br><font color='#555555' size='5'>" + value + "</font></html>");
+        JLabel lbl = new JLabel(
+                "<html><b>" + title + "</b><br><font color='#555555' size='5'>" + value + "</font></html>");
         lbl.setOpaque(true);
         lbl.setBackground(UIConstants.BG_SIDEBAR);
         lbl.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)
-        ));
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
         lbl.setHorizontalAlignment(SwingConstants.CENTER);
         return lbl;
     }
@@ -211,21 +208,25 @@ public class AdminProfileDialog extends JDialog {
         new SwingWorker<Map<String, Object>, Void>() {
             int wCount = 0;
             int mCount = 0;
-            
+
             @Override
             protected Map<String, Object> doInBackground() throws Exception {
                 List<Contact> all = ContactService.getInstance().getAllContacts();
                 LocalDateTime now = LocalDateTime.now();
-                
+
                 for (Contact c : all) {
                     if (c.getCreatedAt() != null) {
                         try {
                             String dStr = c.getCreatedAt().substring(0, Math.min(c.getCreatedAt().length(), 19));
-                            LocalDateTime created = LocalDateTime.parse(dStr, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+                            LocalDateTime created = LocalDateTime.parse(dStr,
+                                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
                             long days = ChronoUnit.DAYS.between(created, now);
-                            if (days <= 7) wCount++;
-                            if (days <= 30) mCount++;
-                        } catch (Exception ignored) {}
+                            if (days <= 7)
+                                wCount++;
+                            if (days <= 30)
+                                mCount++;
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
                 return ContactService.getInstance().getStatistics();
@@ -235,10 +236,14 @@ public class AdminProfileDialog extends JDialog {
             protected void done() {
                 try {
                     Map<String, Object> stats = get();
-                    total.setText("<html><b>Tổng liên hệ</b><br><font color='#2196F3' size='5'>" + stats.get("total") + "</font></html>");
-                    avgComp.setText("<html><b>Độ hoàn thiện</b><br><font color='#4CAF50' size='5'>" + stats.get("avgCompletion") + "%</font></html>");
-                    week.setText("<html><b>Mới tuần này</b><br><font color='#FF9800' size='5'>+" + wCount + "</font></html>");
-                    month.setText("<html><b>Mới tháng này</b><br><font color='#9C27B0' size='5'>+" + mCount + "</font></html>");
+                    total.setText("<html><b>Tổng liên hệ</b><br><font color='#2196F3' size='5'>" + stats.get("total")
+                            + "</font></html>");
+                    avgComp.setText("<html><b>Độ hoàn thiện</b><br><font color='#4CAF50' size='5'>"
+                            + stats.get("avgCompletion") + "%</font></html>");
+                    week.setText("<html><b>Mới tuần này</b><br><font color='#FF9800' size='5'>+" + wCount
+                            + "</font></html>");
+                    month.setText("<html><b>Mới tháng này</b><br><font color='#9C27B0' size='5'>+" + mCount
+                            + "</font></html>");
                 } catch (Exception e) {
                     total.setText("<html><b>Tổng liên hệ</b><br>Lỗi</html>");
                 }
@@ -273,7 +278,7 @@ public class AdminProfileDialog extends JDialog {
         lightRadio.setFont(UIConstants.FONT_BODY);
         lightRadio.setBackground(UIConstants.BG_PRIMARY);
         lightRadio.setSelected(!isDark); // Default
-        
+
         JRadioButton darkRadio = new JRadioButton("Tối (Dark Mode)");
         darkRadio.setFont(UIConstants.FONT_BODY);
         darkRadio.setBackground(UIConstants.BG_PRIMARY);
@@ -309,9 +314,9 @@ public class AdminProfileDialog extends JDialog {
         cleanupNotif.setSelected(true);
         cleanupNotif.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(cleanupNotif);
-        
+
         panel.add(Box.createVerticalStrut(10));
-        
+
         JCheckBox birthdayNotif = new JCheckBox("Hiển thị popup nhắc nhở sinh nhật khi mở ứng dụng");
         birthdayNotif.setFont(UIConstants.FONT_BODY);
         birthdayNotif.setBackground(UIConstants.BG_PRIMARY);
@@ -331,8 +336,9 @@ public class AdminProfileDialog extends JDialog {
         saveBtn.setMaximumSize(new Dimension(150, 36));
         saveBtn.addActionListener(e -> {
             boolean selectedDark = darkRadio.isSelected();
-            boolean currentlyDark = java.util.prefs.Preferences.userRoot().node("contactmanager").getBoolean("dark_mode", false);
-            
+            boolean currentlyDark = java.util.prefs.Preferences.userRoot().node("contactmanager")
+                    .getBoolean("dark_mode", false);
+
             new SwingWorker<Void, Void>() {
                 @Override
                 protected Void doInBackground() throws Exception {
@@ -344,20 +350,29 @@ public class AdminProfileDialog extends JDialog {
                 protected void done() {
                     try {
                         get(); // throw exception if doInBackground failed
-                        java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node("contactmanager");
+                        java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot()
+                                .node("contactmanager");
                         prefs.putBoolean("dark_mode", selectedDark);
                         prefs.flush();
-                        
+
                         if (selectedDark != currentlyDark) {
-                            int res = JOptionPane.showConfirmDialog(AdminProfileDialog.this, "Đã lưu cài đặt! Ứng dụng cần tải lại để thay đổi giao diện. Tải lại ngay?", "Thành công", JOptionPane.YES_NO_OPTION);
+                            int res = JOptionPane.showConfirmDialog(AdminProfileDialog.this,
+                                    "Đã lưu cài đặt! Ứng dụng cần tải lại để thay đổi giao diện. Tải lại ngay?",
+                                    "Thành công", JOptionPane.YES_NO_OPTION);
                             if (res == JOptionPane.YES_OPTION) {
                                 if (selectedDark) {
-                                    try { com.formdev.flatlaf.FlatDarkLaf.setup(); } catch(Exception ignored){}
+                                    try {
+                                        com.formdev.flatlaf.FlatDarkLaf.setup();
+                                    } catch (Exception ignored) {
+                                    }
                                 } else {
-                                    try { com.formdev.flatlaf.FlatLightLaf.setup(); } catch(Exception ignored){}
+                                    try {
+                                        com.formdev.flatlaf.FlatLightLaf.setup();
+                                    } catch (Exception ignored) {
+                                    }
                                 }
                                 ui.UIConstants.applyTheme(selectedDark);
-                                
+
                                 if (parentFrame != null) {
                                     parentFrame.setVisible(false);
                                     parentFrame.dispose();
@@ -367,15 +382,19 @@ public class AdminProfileDialog extends JDialog {
                                 newFrame.setVisible(true);
                             }
                         } else {
-                            JOptionPane.showMessageDialog(AdminProfileDialog.this, "Đã lưu cài đặt cá nhân hóa!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                            JOptionPane.showMessageDialog(AdminProfileDialog.this, "Đã lưu cài đặt cá nhân hóa!",
+                                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
                         }
                     } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi cập nhật giao diện: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this,
+                                "Lỗi cập nhật giao diện: "
+                                        + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()),
+                                "Lỗi", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }.execute();
         });
-        
+
         panel.add(Box.createVerticalStrut(20));
         panel.add(saveBtn);
 
@@ -389,7 +408,7 @@ public class AdminProfileDialog extends JDialog {
         SupabaseConfig config = SupabaseConfig.getInstance();
         String email = config.getCurrentUserEmail();
         String dName = config.getCurrentUserDisplayName();
-        String avatarStr = config.getCurrentUserAvatar(); 
+        String avatarStr = config.getCurrentUserAvatar();
 
         if (dName == null || dName.isBlank()) {
             nameLabel.setText(email != null ? email.split("@")[0] : "Admin");
@@ -406,7 +425,7 @@ public class AdminProfileDialog extends JDialog {
         } else if (email != null && !email.isBlank()) {
             displayIcon = String.valueOf(email.charAt(0)).toUpperCase();
         }
-        
+
         avatarLabel.setText(displayIcon);
         avatarLabel.repaint();
     }
@@ -418,11 +437,12 @@ public class AdminProfileDialog extends JDialog {
         SupabaseConfig config = SupabaseConfig.getInstance();
         JTextField nameField = new JTextField(20);
         nameField.setText(config.getCurrentUserDisplayName());
-        
+
         String currentAvatar = config.getCurrentUserAvatar();
         String[] finalAvatar = { currentAvatar };
-        
-        JButton chooseImageBtn = new JButton(currentAvatar != null && currentAvatar.startsWith("data:image") ? "Đổi ảnh khác" : "Chọn ảnh từ máy");
+
+        JButton chooseImageBtn = new JButton(
+                currentAvatar != null && currentAvatar.startsWith("data:image") ? "Đổi ảnh khác" : "Chọn ảnh từ máy");
         chooseImageBtn.addActionListener(e -> {
             JFileChooser chooser = new JFileChooser();
             chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
@@ -436,13 +456,13 @@ public class AdminProfileDialog extends JDialog {
                 }
             }
         });
-        
+
         JButton clearImageBtn = new JButton("Xóa ảnh");
         clearImageBtn.addActionListener(e -> {
             finalAvatar[0] = "";
             chooseImageBtn.setText("Chọn ảnh từ máy");
         });
-        
+
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         btnPanel.add(chooseImageBtn);
         btnPanel.add(Box.createHorizontalStrut(10));
@@ -471,8 +491,10 @@ public class AdminProfileDialog extends JDialog {
                     try {
                         get();
                         refreshProfileUI();
-                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Cập nhật hồ sơ thành công! (Tự động tải lại cửa sổ chính để áp dụng)", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                        
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this,
+                                "Cập nhật hồ sơ thành công! (Tự động tải lại cửa sổ chính để áp dụng)", "Thành công",
+                                JOptionPane.INFORMATION_MESSAGE);
+
                         // Tự động tải lại MainFrame
                         if (parentFrame != null) {
                             parentFrame.setVisible(false);
@@ -482,7 +504,9 @@ public class AdminProfileDialog extends JDialog {
                             AdminProfileDialog.this.dispose();
                         }
                     } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this,
+                                "Lỗi: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi",
+                                JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }.execute();
@@ -513,14 +537,15 @@ public class AdminProfileDialog extends JDialog {
             String cnp = new String(confirmPwd.getPassword());
 
             if (cp.isBlank() || np.isBlank() || cnp.isBlank()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!", "Lỗi",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             if (!np.equals(cnp)) {
                 JOptionPane.showMessageDialog(this, "Mật khẩu mới không khớp!", "Lỗi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            
+
             new SwingWorker<Void, Void>() {
                 @Override
                 protected Void doInBackground() throws Exception {
@@ -532,9 +557,12 @@ public class AdminProfileDialog extends JDialog {
                 protected void done() {
                     try {
                         get();
-                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Đổi mật khẩu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Đổi mật khẩu thành công!", "Thành công",
+                                JOptionPane.INFORMATION_MESSAGE);
                     } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(AdminProfileDialog.this,
+                                "Lỗi: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage()), "Lỗi",
+                                JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }.execute();
@@ -542,30 +570,33 @@ public class AdminProfileDialog extends JDialog {
     }
 
     private void deleteAccount() {
-        int confirm = JOptionPane.showConfirmDialog(this, 
-            "Bạn có chắc chắn muốn XÓA TÀI KHOẢN?\nToàn bộ dữ liệu liên hệ sẽ bị mất vĩnh viễn và không thể khôi phục!", 
-            "Cảnh báo nguy hiểm", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn XÓA TÀI KHOẢN?\nToàn bộ dữ liệu liên hệ sẽ bị mất vĩnh viễn và không thể khôi phục!",
+                "Cảnh báo nguy hiểm", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
         if (confirm == JOptionPane.YES_OPTION) {
             String email = SupabaseConfig.getInstance().getCurrentUserEmail();
             String pwd = JOptionPane.showInputDialog(this, "Nhập mật khẩu của bạn để xác nhận xóa tài khoản:");
-            
+
             if (pwd != null && !pwd.isBlank()) {
                 try {
                     boolean check = SupabaseService.getInstance().loginUser(email, pwd);
                     if (check) {
                         // TODO: Implement user deletion in SupabaseService
-                        JOptionPane.showMessageDialog(this, "Đã gửi yêu cầu xóa tài khoản lên hệ thống. Tự động đăng xuất.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(this,
+                                "Đã gửi yêu cầu xóa tài khoản lên hệ thống. Tự động đăng xuất.", "Thành công",
+                                JOptionPane.INFORMATION_MESSAGE);
                         logout();
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Mật khẩu không đúng, không thể xóa tài khoản!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Mật khẩu không đúng, không thể xóa tài khoản!", "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
                 }
             }
         }
     }
 
-    private void logout() {
+    private JPanel logout() {
         int ok = JOptionPane.showConfirmDialog(this,
                 "Bạn có chắc chắn muốn đăng xuất?", "Đăng xuất", JOptionPane.YES_NO_OPTION);
         if (ok == JOptionPane.YES_OPTION) {
@@ -574,7 +605,115 @@ public class AdminProfileDialog extends JDialog {
             parentFrame.setVisible(false);
             parentFrame.dispose();
             LoginFrame login = new LoginFrame();
-            if (login.checkSupabaseConfig()) login.setVisible(true);
+            if (login.checkSupabaseConfig())
+                login.setVisible(true);
         }
+        JPanel p = new JPanel(new BorderLayout(10, 10));
+        p.setBackground(UIConstants.BG_PRIMARY);
+        p.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel title = new JLabel("Quản lý tài khoản người dùng");
+        title.setFont(UIConstants.FONT_TITLE);
+        title.setForeground(UIConstants.TEXT_PRIMARY);
+        p.add(title, BorderLayout.NORTH);
+
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+        listPanel.setBackground(UIConstants.BG_PRIMARY);
+
+        JScrollPane scroll = new JScrollPane(listPanel);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(UIConstants.BG_PRIMARY);
+        p.add(scroll, BorderLayout.CENTER);
+
+        // Load danh sách người dùng
+        new SwingWorker<com.google.gson.JsonArray, Void>() {
+            @Override
+            protected com.google.gson.JsonArray doInBackground() throws Exception {
+                return SupabaseService.getInstance().getAllUsers();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    com.google.gson.JsonArray users = get();
+                    listPanel.removeAll();
+                    for (com.google.gson.JsonElement el : users) {
+                        com.google.gson.JsonObject u = el.getAsJsonObject();
+                        String uid = getStr(u, "id");
+                        String uEmail = getStr(u, "email");
+                        String uName = getStr(u, "display_name");
+                        String role = getStr(u, "role");
+
+                        JPanel item = new JPanel(new BorderLayout());
+                        item.setBackground(UIConstants.BG_SECONDARY);
+                        item.setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(UIConstants.BORDER, 1, true),
+                                BorderFactory.createEmptyBorder(10, 15, 10, 15)));
+                        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+                        String infoStr = uEmail;
+                        if (uName != null && !uName.isBlank())
+                            infoStr = uName + " (" + uEmail + ")";
+                        if ("admin".equals(role))
+                            infoStr += " [ADMIN]";
+
+                        JLabel infoLbl = new JLabel(infoStr);
+                        infoLbl.setFont(UIConstants.FONT_BODY);
+                        infoLbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                        JButton resetBtn = new JButton("Reset Mật Khẩu");
+                        resetBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+                        resetBtn.setForeground(Color.WHITE);
+                        resetBtn.setBackground(new Color(239, 68, 68)); // Đỏ
+                        resetBtn.setFocusPainted(false);
+                        resetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                        if ("admin".equals(role) && !uid.equals(SupabaseConfig.getInstance().getCurrentUserId())) {
+                            resetBtn.setEnabled(false); // Không reset pass admin khác để an toàn
+                        }
+
+                        resetBtn.addActionListener(e -> {
+                            int ok = JOptionPane.showConfirmDialog(AdminProfileDialog.this,
+                                    "Bạn muốn reset mật khẩu cho " + uEmail + "?", "Xác nhận",
+                                    JOptionPane.YES_NO_OPTION);
+                            if (ok == JOptionPane.YES_OPTION) {
+                                String newPass = "Aa@" + (100000 + new java.util.Random().nextInt(900000));
+                                try {
+                                    SupabaseService.getInstance().adminResetUserPassword(uid, newPass);
+                                    JTextArea ta = new JTextArea("Đã reset mật khẩu thành công!\n\nMật khẩu mới: "
+                                            + newPass + "\n\nHãy copy và gửi cho họ.");
+                                    ta.setEditable(false);
+                                    JOptionPane.showMessageDialog(AdminProfileDialog.this, ta, "Thành công",
+                                            JOptionPane.INFORMATION_MESSAGE);
+                                } catch (Exception ex) {
+                                    JOptionPane.showMessageDialog(AdminProfileDialog.this, "Lỗi: " + ex.getMessage(),
+                                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                                }
+                            }
+                        });
+
+                        item.add(infoLbl, BorderLayout.CENTER);
+                        item.add(resetBtn, BorderLayout.EAST);
+                        listPanel.add(item);
+                        listPanel.add(Box.createVerticalStrut(10));
+                    }
+                    listPanel.revalidate();
+                    listPanel.repaint();
+                } catch (Exception ex) {
+                    JLabel err = new JLabel("Lỗi tải danh sách: " + ex.getMessage());
+                    err.setForeground(Color.RED);
+                    listPanel.add(err);
+                }
+            }
+        }.execute();
+
+        return p;
+    }
+
+    private String getStr(com.google.gson.JsonObject obj, String key) {
+        if (obj.has(key) && !obj.get(key).isJsonNull()) {
+            return obj.get(key).getAsString();
+        }
+        return null;
     }
 }

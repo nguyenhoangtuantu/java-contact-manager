@@ -1,5 +1,3 @@
-import com.formdev.flatlaf.FlatDarkLaf;
-
 import javax.swing.*;
 
 /**
@@ -9,7 +7,8 @@ public class Main {
     public static void main(String[] args) {
         // Thiết lập Look and Feel
         try {
-            boolean isDark = java.util.prefs.Preferences.userRoot().node("contactmanager").getBoolean("dark_mode", false);
+            boolean isDark = java.util.prefs.Preferences.userRoot().node("contactmanager").getBoolean("dark_mode",
+                    false);
             if (isDark) {
                 com.formdev.flatlaf.FlatDarkLaf.setup();
             } else {

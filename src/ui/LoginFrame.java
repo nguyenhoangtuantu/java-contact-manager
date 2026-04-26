@@ -468,7 +468,11 @@ public class LoginFrame extends JFrame {
         } catch (Exception e) {}
         
         dispose();
-        new MainFrame().setVisible(true);
+        if (SupabaseConfig.getInstance().isAdmin()) {
+            new AdminDashboardFrame().setVisible(true);
+        } else {
+            new MainFrame().setVisible(true);
+        }
     }
 
     private void setRStatus(String msg, Color c) {

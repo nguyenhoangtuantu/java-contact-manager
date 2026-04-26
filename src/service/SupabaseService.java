@@ -48,7 +48,7 @@ public class SupabaseService {
     public boolean loginUser(String email, String password) throws Exception {
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
         // Lưu ý: Cần chạy file migration_user_avatar.sql trên Supabase trước để thêm cột avatar
-        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar,is_dark_mode";
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar,is_dark_mode,role";
 
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -78,9 +78,11 @@ public class SupabaseService {
         if (user.has("is_dark_mode") && !user.get("is_dark_mode").isJsonNull()) {
             isDarkMode = user.get("is_dark_mode").getAsBoolean();
         }
+        String role = getStr(user, "role");
+        if (role == null || role.isBlank()) role = "user";
 
         // Lưu phiên đăng nhập
-        config.setAuthSession(user.get("id").getAsString(), email, dName, avatar, isDarkMode);
+        config.setAuthSession(user.get("id").getAsString(), email, dName, avatar, isDarkMode, role);
         return true;
     }
 
@@ -318,6 +320,39 @@ public class SupabaseService {
 
         config.updateUserTheme(isDarkMode);
         return true;
+    }
+
+    // ==================== QUẢN LÝ NGƯỜI DÙNG (ADMIN ONLY) ====================
+
+    public JsonArray getAllUsers() throws Exception {
+        if (!config.isAdmin()) throw new Exception("Bạn không có quyền xem danh sách người dùng!");
+        String url = config.getRestUrl() + "users?select=id,email,display_name,created_at,role&order=created_at.desc";
+        HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new Exception("Lỗi lấy danh sách người dùng!");
+        }
+        return JsonParser.parseString(response.body()).getAsJsonArray();
+    }
+
+    public void adminResetUserPassword(String userId, String newPassword) throws Exception {
+        if (!config.isAdmin()) throw new Exception("Bạn không có quyền thực hiện thao tác này!");
+        
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("password", sha256(newPassword));
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Cập nhật mật khẩu thất bại!");
+        }
     }
 
     // ==================== CONTACTS ====================

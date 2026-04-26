@@ -19,6 +19,7 @@ public class SupabaseConfig {
     private String currentUserDisplayName;
     private String currentUserAvatar;
     private boolean currentUserDarkMode;
+    private String currentUserRole;
 
     private static SupabaseConfig instance;
 
@@ -64,16 +65,17 @@ public class SupabaseConfig {
     public String getSupabaseKey() { return supabaseKey; }
 
     /** Lưu phiên đăng nhập sau khi xác thực thành công. */
-    public void setAuthSession(String userId, String email, String displayName, String avatar, boolean isDarkMode) {
+    public void setAuthSession(String userId, String email, String displayName, String avatar, boolean isDarkMode, String role) {
         this.currentUserId = userId;
         this.currentUserEmail = email;
         this.currentUserDisplayName = displayName;
         this.currentUserAvatar = avatar;
         this.currentUserDarkMode = isDarkMode;
+        this.currentUserRole = role;
     }
 
     public void setAuthSession(String userId, String email) {
-        setAuthSession(userId, email, null, null, false);
+        setAuthSession(userId, email, null, null, false, "user");
     }
     
     public void updateUserProfile(String displayName, String avatar) {
@@ -91,6 +93,7 @@ public class SupabaseConfig {
         this.currentUserEmail = null;
         this.currentUserDisplayName = null;
         this.currentUserAvatar = null;
+        this.currentUserRole = null;
     }
 
     public String getCurrentUserId() { return currentUserId; }
@@ -98,6 +101,8 @@ public class SupabaseConfig {
     public String getCurrentUserDisplayName() { return currentUserDisplayName; }
     public String getCurrentUserAvatar() { return currentUserAvatar; }
     public boolean isCurrentUserDarkMode() { return currentUserDarkMode; }
+    public String getCurrentUserRole() { return currentUserRole; }
+    public boolean isAdmin() { return "admin".equalsIgnoreCase(currentUserRole); }
 
     /** Kiểm tra đã đăng nhập chưa. */
     public boolean isLoggedIn() {
