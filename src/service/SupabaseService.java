@@ -48,7 +48,8 @@ public class SupabaseService {
     public boolean loginUser(String email, String password) throws Exception {
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
         // Lưu ý: Cần chạy file migration_user_avatar.sql trên Supabase trước để thêm cột avatar
-        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=id,email,password,display_name,avatar,is_dark_mode,is_cleanup_reminder,is_birthday_reminder,role";
+        // Cần thêm cột is_deleted kiểu boolean (mặc định false) vào bảng users
+        String url = config.getRestUrl() + "users?email=eq." + encodedEmail + "&select=*";
 
         HttpRequest request = buildGetRequest(url);
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -64,6 +65,15 @@ public class SupabaseService {
         }
 
         JsonObject user = arr.get(0).getAsJsonObject();
+
+        boolean isDeleted = false;
+        if (user.has("is_deleted") && !user.get("is_deleted").isJsonNull()) {
+            isDeleted = user.get("is_deleted").getAsBoolean();
+        }
+        if (isDeleted) {
+            throw new Exception("Tài khoản của bạn đã bị xóa!");
+        }
+
         String storedHash = user.get("password").getAsString();
         String inputHash  = sha256(password);
 
@@ -364,9 +374,9 @@ public class SupabaseService {
 
     // ==================== QUẢN LÝ NGƯỜI DÙNG (ADMIN ONLY) ====================
 
-    public JsonArray getAllUsers(String keyword) throws Exception {
+    public JsonArray getAllUsers(String keyword, boolean fetchDeleted) throws Exception {
         if (!config.isAdmin()) throw new Exception("Bạn không có quyền xem danh sách người dùng!");
-        String url = config.getRestUrl() + "users?select=id,email,display_name,created_at,role&order=created_at.desc";
+        String url = config.getRestUrl() + "users?select=*&order=created_at.desc";
         if (keyword != null && !keyword.trim().isEmpty()) {
             String encoded = URLEncoder.encode("%" + keyword.trim() + "%", StandardCharsets.UTF_8);
             url += "&or=(display_name.ilike." + encoded + ",email.ilike." + encoded + ")";
@@ -375,7 +385,20 @@ public class SupabaseService {
         if (response.statusCode() >= 400) {
             throw new Exception("Lỗi lấy danh sách người dùng!");
         }
-        return JsonParser.parseString(response.body()).getAsJsonArray();
+        
+        JsonArray allUsers = JsonParser.parseString(response.body()).getAsJsonArray();
+        JsonArray filtered = new JsonArray();
+        for (JsonElement el : allUsers) {
+            JsonObject u = el.getAsJsonObject();
+            boolean isDeleted = false;
+            if (u.has("is_deleted") && !u.get("is_deleted").isJsonNull()) {
+                isDeleted = u.get("is_deleted").getAsBoolean();
+            }
+            if (isDeleted == fetchDeleted) {
+                filtered.add(u);
+            }
+        }
+        return filtered;
     }
 
     public void adminResetUserPassword(String userId, String newPassword) throws Exception {
@@ -396,6 +419,45 @@ public class SupabaseService {
         HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
         if (updateRes.statusCode() >= 400) {
             throw new Exception("Cập nhật mật khẩu thất bại!");
+        }
+    }
+
+    public void deleteUserAccount(String userId) throws Exception {
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("is_deleted", true);
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Xóa tài khoản thất bại! " + updateRes.body());
+        }
+    }
+
+    public void adminRestoreUser(String userId) throws Exception {
+        if (!config.isAdmin()) throw new Exception("Bạn không có quyền thực hiện thao tác này!");
+        String updateUrl = config.getRestUrl() + "users?id=eq." + userId;
+        JsonObject body = new JsonObject();
+        body.addProperty("is_deleted", false);
+
+        HttpRequest updateReq = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("apikey", config.getSupabaseKey())
+                .header("Authorization", "Bearer " + config.getSupabaseKey())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+
+        HttpResponse<String> updateRes = httpClient.send(updateReq, HttpResponse.BodyHandlers.ofString());
+        if (updateRes.statusCode() >= 400) {
+            throw new Exception("Khôi phục tài khoản thất bại! " + updateRes.body());
         }
     }
 

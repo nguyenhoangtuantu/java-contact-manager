@@ -587,14 +587,16 @@ public class AdminProfileDialog extends JDialog {
                 try {
                     boolean check = SupabaseService.getInstance().loginUser(email, pwd);
                     if (check) {
-                        // TODO: Implement user deletion in SupabaseService
+                        String userId = SupabaseConfig.getInstance().getCurrentUserId();
+                        SupabaseService.getInstance().deleteUserAccount(userId);
+                        
                         JOptionPane.showMessageDialog(this,
                                 "Đã gửi yêu cầu xóa tài khoản lên hệ thống. Tự động đăng xuất.", "Thành công",
                                 JOptionPane.INFORMATION_MESSAGE);
                         logout();
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Mật khẩu không đúng, không thể xóa tài khoản!", "Lỗi",
+                    JOptionPane.showMessageDialog(this, "Lỗi khi xóa tài khoản: " + ex.getMessage(), "Lỗi",
                             JOptionPane.ERROR_MESSAGE);
                 }
             }

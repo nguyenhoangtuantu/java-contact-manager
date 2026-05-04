@@ -13,6 +13,10 @@ public class AdminDashboardFrame extends JFrame {
     private JPanel listPanel;
     private JTextField searchField;
     private JLabel totalUsersLabel;
+    private JLabel title;
+    private boolean showingDeletedUsers = false;
+    private JPanel manageUsersBtn;
+    private JPanel deletedUsersBtn;
 
     public AdminDashboardFrame() {
         setTitle("Admin Dashboard - Quản lý Hệ thống");
@@ -60,7 +64,31 @@ public class AdminDashboardFrame extends JFrame {
         JPanel menu = new JPanel();
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
         menu.setOpaque(false);
-        menu.add(createMenuBtn("👥 Quản lý người dùng", true));
+        
+        manageUsersBtn = createMenuBtn("👥 Quản lý người dùng", true);
+        deletedUsersBtn = createMenuBtn("🗑 Tài khoản đã xóa", false);
+        
+        manageUsersBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        deletedUsersBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        manageUsersBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                switchTab(false);
+            }
+        });
+        
+        deletedUsersBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                switchTab(true);
+            }
+        });
+        
+        menu.add(manageUsersBtn);
+        menu.add(Box.createVerticalStrut(5));
+        menu.add(deletedUsersBtn);
+        
         sidebar.add(menu, BorderLayout.CENTER);
 
         JButton logoutBtn = new JButton("Đăng xuất");
@@ -90,7 +118,7 @@ public class AdminDashboardFrame extends JFrame {
         topHeader.setBackground(UIConstants.BG_PRIMARY);
         topHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
-        JLabel title = new JLabel("Danh sách tài khoản");
+        title = new JLabel("Danh sách tài khoản");
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(UIConstants.TEXT_PRIMARY);
         topHeader.add(title, BorderLayout.WEST);
@@ -146,6 +174,19 @@ public class AdminDashboardFrame extends JFrame {
         return p;
     }
 
+    private void switchTab(boolean showDeleted) {
+        showingDeletedUsers = showDeleted;
+        manageUsersBtn.setBackground(!showDeleted ? UIConstants.BG_SELECTED : UIConstants.BG_SIDEBAR);
+        ((JLabel) manageUsersBtn.getComponent(0)).setForeground(!showDeleted ? UIConstants.ACCENT : UIConstants.TEXT_SECONDARY);
+        
+        deletedUsersBtn.setBackground(showDeleted ? UIConstants.BG_SELECTED : UIConstants.BG_SIDEBAR);
+        ((JLabel) deletedUsersBtn.getComponent(0)).setForeground(showDeleted ? UIConstants.ACCENT : UIConstants.TEXT_SECONDARY);
+        
+        title.setText(showDeleted ? "Tài khoản đã xóa" : "Danh sách tài khoản");
+        searchField.setText("");
+        loadUsers();
+    }
+
     private void loadUsers() {
         String keyword = searchField != null ? searchField.getText() : "";
         listPanel.removeAll();
@@ -158,7 +199,7 @@ public class AdminDashboardFrame extends JFrame {
         new SwingWorker<com.google.gson.JsonArray, Void>() {
             @Override
             protected com.google.gson.JsonArray doInBackground() throws Exception {
-                return SupabaseService.getInstance().getAllUsers(keyword);
+                return SupabaseService.getInstance().getAllUsers(keyword, showingDeletedUsers);
             }
 
             @Override
@@ -202,17 +243,31 @@ public class AdminDashboardFrame extends JFrame {
                         infoWrap.add(nameLbl);
                         infoWrap.add(roleLbl);
 
-                        JButton resetBtn = new JButton("Reset Mật Khẩu");
-                        resetBtn.setFont(UIConstants.FONT_SMALL_BOLD);
-                        resetBtn.setForeground(Color.WHITE);
-                        resetBtn.setBackground(new Color(239, 68, 68));
-                        resetBtn.setFocusPainted(false);
-                        resetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                        if ("admin".equals(role)) {
-                            resetBtn.setVisible(false);
-                        }
+                        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+                        actionPanel.setOpaque(false);
 
-                        resetBtn.addActionListener(e -> resetPasswordFor(uid, uEmail));
+                        if (!showingDeletedUsers) {
+                            JButton resetBtn = new JButton("Reset Mật Khẩu");
+                            resetBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+                            resetBtn.setForeground(Color.WHITE);
+                            resetBtn.setBackground(new Color(239, 68, 68));
+                            resetBtn.setFocusPainted(false);
+                            resetBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                            if ("admin".equals(role)) {
+                                resetBtn.setVisible(false);
+                            }
+                            resetBtn.addActionListener(e -> resetPasswordFor(uid, uEmail));
+                            actionPanel.add(resetBtn);
+                        } else {
+                            JButton restoreBtn = new JButton("Khôi phục");
+                            restoreBtn.setFont(UIConstants.FONT_SMALL_BOLD);
+                            restoreBtn.setForeground(Color.WHITE);
+                            restoreBtn.setBackground(new Color(34, 197, 94)); // Green
+                            restoreBtn.setFocusPainted(false);
+                            restoreBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                            restoreBtn.addActionListener(e -> restoreUser(uid, uEmail));
+                            actionPanel.add(restoreBtn);
+                        }
 
                         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                         item.addMouseListener(new MouseAdapter() {
@@ -241,7 +296,7 @@ public class AdminDashboardFrame extends JFrame {
                         });
 
                         item.add(infoWrap, BorderLayout.CENTER);
-                        item.add(resetBtn, BorderLayout.EAST);
+                        item.add(actionPanel, BorderLayout.EAST);
                         listPanel.add(item);
                         listPanel.add(Box.createVerticalStrut(15));
                     }
@@ -271,6 +326,21 @@ public class AdminDashboardFrame extends JFrame {
                         "Đã reset mật khẩu thành công!\n\nMật khẩu mới: " + newPass + "\n\nHãy copy và gửi cho họ.");
                 ta.setEditable(false);
                 JOptionPane.showMessageDialog(this, ta, "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void restoreUser(String uid, String email) {
+        int ok = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc muốn khôi phục tài khoản " + email + "?",
+                "Xác nhận khôi phục", JOptionPane.YES_NO_OPTION);
+        if (ok == JOptionPane.YES_OPTION) {
+            try {
+                SupabaseService.getInstance().adminRestoreUser(uid);
+                JOptionPane.showMessageDialog(this, "Khôi phục tài khoản thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                loadUsers(); // Refresh list after restore
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
