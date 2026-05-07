@@ -28,11 +28,13 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 -- =====================================================
 CREATE TABLE IF NOT EXISTS contact_groups (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,         
+    name TEXT NOT NULL,         
     display_name TEXT NOT NULL,        
     icon TEXT DEFAULT '📋',            
     color_hex TEXT DEFAULT '#9696A0',  
-    description TEXT                   
+    description TEXT,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(name, user_id)
 );
 
 INSERT INTO contact_groups (id, name, display_name, icon, color_hex, description) VALUES

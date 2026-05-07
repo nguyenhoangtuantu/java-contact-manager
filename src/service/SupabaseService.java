@@ -629,11 +629,8 @@ public class SupabaseService {
 
     // ==================== CONTACT_GROUPS ====================
 
-    /**
-     * Lấy tất cả nhóm.
-     */
     public List<GroupInfo> getAllGroups() throws Exception {
-        String url = config.getRestUrl() + "contact_groups?select=*&order=id.asc";
+        String url = config.getRestUrl() + "contact_groups?select=*&or=(user_id.is.null,user_id.eq." + currentUserId() + ")&order=id.asc";
         HttpResponse<String> response = httpClient.send(buildGetRequest(url), HttpResponse.BodyHandlers.ofString());
         checkResponse(response);
         return parseGroupList(response.body());
@@ -647,6 +644,7 @@ public class SupabaseService {
         JsonObject json = new JsonObject();
         json.addProperty("name", group.getName());
         json.addProperty("display_name", group.getDisplayName());
+        json.addProperty("user_id", currentUserId());
         if (group.getIcon() != null) json.addProperty("icon", group.getIcon());
         if (group.getColorHex() != null) json.addProperty("color_hex", group.getColorHex());
         if (group.getDescription() != null) json.addProperty("description", group.getDescription());
@@ -667,7 +665,7 @@ public class SupabaseService {
     }
 
     public void deleteGroup(int groupId) throws Exception {
-        String url = config.getRestUrl() + "contact_groups?id=eq." + groupId;
+        String url = config.getRestUrl() + "contact_groups?id=eq." + groupId + "&user_id=eq." + currentUserId();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("apikey", config.getSupabaseKey())
@@ -883,6 +881,7 @@ public class SupabaseService {
             g.setIcon(getStr(obj, "icon"));
             g.setColorHex(getStr(obj, "color_hex"));
             g.setDescription(getStr(obj, "description"));
+            g.setUserId(getStr(obj, "user_id"));
             groups.add(g);
         }
         return groups;

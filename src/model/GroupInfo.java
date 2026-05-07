@@ -13,6 +13,7 @@ public class GroupInfo {
     private String icon;           // Icon emoji: ⭐, 🏠, ...
     private String colorHex;       // Mã màu hex: #FF4B4B
     private String description;    // Mô tả
+    private String userId;         // ID người dùng tạo nhóm này (null nếu là nhóm mặc định)
 
     public GroupInfo() {}
 
@@ -47,6 +48,9 @@ public class GroupInfo {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     /**
      * Chuyển hex color thành Color object.
