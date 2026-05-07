@@ -21,6 +21,9 @@ Dự án **Quản lý Danh bạ** là một ứng dụng Desktop được phát 
 - **📑 Phân trang Cổ điển (Pagination):** Quản lý và tải danh sách liên hệ theo trang, không gây giật lag kể cả với số lượng dữ liệu cực lớn.
 - **🔍 Xác nhận Trùng lặp & Dọn dẹp (Cleanup):** Tích hợp tính năng quét và cảnh báo các liên hệ có sự trùng lặp, thông báo dọn dẹp định kỳ để làm sạch dữ liệu danh bạ.
 - **🎨 Giao diện Hiện đại (Modern UI):** Sử dụng thư viện [FlatLaf](https://www.formdev.com/flatlaf/) mang lại giao diện tinh tế, thân thiện.
+- **🔔 Hệ thống Thông báo (Notification System):** Các thông báo pop-up trực quan, kịp thời phản hồi cho người dùng sau khi hoàn thành các tác vụ (thêm mới, cập nhật, xóa) hoặc nhắc nhở khi có lỗi xảy ra.
+- **🛡️ Bảo mật Dữ liệu (Data Security):** Dữ liệu xác thực như mật khẩu được bảo vệ an toàn để ngăn ngừa các truy cập trái phép.
+- **🔄 Đồng bộ hóa Mượt mà (Smooth Sync):** Tương tác với cơ sở dữ liệu và REST API một cách đa luồng/bất đồng bộ để đảm bảo giao diện luôn phản hồi nhanh (Responsive).
 
 ## 🛠 Công nghệ sử dụng
 
@@ -29,6 +32,14 @@ Dự án **Quản lý Danh bạ** là một ứng dụng Desktop được phát 
 - **Xử lý JSON:** Gson (Version 2.10.1)
 - **Cơ sở dữ liệu:** PostgreSQL + PostgREST (cung cấp RESTful API) chạy trên nền tảng **Docker**
 - **Tạo mã QR:** Thư viện ZXing (Zebra Crossing) gồm `core` và `javase` (Version 3.5.3)
+
+## 🗄️ Chi tiết Cơ sở dữ liệu (Database Details)
+
+Cơ sở dữ liệu PostgreSQL được thiết kế để đảm bảo tính toàn vẹn và tốc độ truy xuất cao:
+- **Bảng `users`:** Quản lý thông tin tài khoản, bao gồm tên đăng nhập, mật khẩu mã hóa, vai trò (Role: admin/user) và trạng thái hoạt động.
+- **Bảng `contacts`:** Cốt lõi của hệ thống, dùng để lưu chi tiết các liên hệ (Họ Tên, Số điện thoại, Email, Ngày sinh, Địa chỉ...). Được liên kết khóa ngoại (`user_id`) trỏ về bảng `users` nhằm đảm bảo mỗi người dùng quản lý vùng dữ liệu độc lập, riêng biệt.
+- **Bảng `groups`:** Lưu trữ các danh mục, nhóm tùy chỉnh giúp phân loại và lọc các liên lạc một cách logic.
+- **Ràng buộc và Hiệu năng:** Hệ thống sử dụng mạnh mẽ các ràng buộc tính toàn vẹn (như `ON DELETE CASCADE`), đồng thời hỗ trợ sử dụng API qua RESTful để dễ dàng thực hiện các thao tác CRUD mà không cần viết các câu truy vấn thủ công trong Java.
 
 ## 📁 Cấu trúc Dự án
 
